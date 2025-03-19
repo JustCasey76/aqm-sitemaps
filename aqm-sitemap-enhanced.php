@@ -423,7 +423,7 @@ function display_enhanced_page_sitemap($atts) {
     global $wpdb;
     
     // Ensure our styles are loaded with forced cache busting
-    $css_version = AQM_SITEMAP_VERSION;
+    $css_version = AQM_SITEMAP_VERSION . '.' . time(); // Ultra-aggressive cache busting
     wp_enqueue_style(
         'aqm-sitemap-frontend',
         plugins_url('css/frontend-style.css', __FILE__),
@@ -457,20 +457,36 @@ function display_enhanced_page_sitemap($atts) {
         }
     }
     
-    // Debug information for admins
+    // Debug information for admins - always show for any logged-in user temporarily
     $debug = '';
     // Check if user is admin AND debug is enabled in settings
-    if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+    if (current_user_can('manage_options') || is_user_logged_in()) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
         $debug .= '<p><strong>Debug Info:</strong></p>';
         $debug .= '<p>Folder: ' . esc_html($folder_slug) . '</p>';
         $debug .= '<p>Excluded IDs: ' . (!empty($exclude_ids) ? esc_html(implode(', ', $exclude_ids)) : 'None') . '</p>';
+        
+        // Add Premio Folders debugging
+        $terms = get_terms(array(
+            'taxonomy' => 'folder',
+            'hide_empty' => false,
+        ));
+        if (!empty($terms) && !is_wp_error($terms)) {
+            $debug .= '<p><strong>Available Folders:</strong></p><ul>';
+            foreach ($terms as $term) {
+                $debug .= '<li>' . esc_html($term->name) . ' [' . esc_html($term->slug) . '] (ID: ' . esc_html($term->term_id) . ')</li>';
+            }
+            $debug .= '</ul>';
+        } else {
+            $debug .= '<p>No folder terms found. Check if Premio Folders is active.</p>';
+        }
+        
         $debug .= '</div>';
     }
     
     // Check if folder slug is empty
     if (empty($folder_slug)) {
-        if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+        if (current_user_can('manage_options') || is_user_logged_in()) {
             return $debug . '<p>Error: No folder_slug provided in shortcode.</p>';
         }
         return '<p>No pages found.</p>';
@@ -479,64 +495,83 @@ function display_enhanced_page_sitemap($atts) {
     // Get the specific term by slug
     $folder_term = get_term_by('slug', $folder_slug, 'folder');
     if (!$folder_term) {
-        if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+        if (current_user_can('manage_options') || is_user_logged_in()) {
             return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
         }
         return '<p>No pages found.</p>';
     }
     
-    // Use a direct SQL query that exactly matches Premio Folders' database structure
-    $query = $wpdb->prepare(
-        "SELECT p.ID, p.post_title 
-         FROM {$wpdb->posts} p
-         INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
-         INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-         WHERE p.post_type = 'page' 
-         AND p.post_status = 'publish'
-         AND tt.taxonomy = 'folder'
-         AND tt.term_id = %d
-         AND p.ID NOT IN (
-             SELECT tr2.object_id
-             FROM {$wpdb->term_relationships} tr2
-             INNER JOIN {$wpdb->term_taxonomy} tt2 ON tr2.term_taxonomy_id = tt2.term_taxonomy_id
-             WHERE tt2.taxonomy = 'folder'
-             AND tt2.term_id != %d
-         )",
-        $folder_term->term_id,
-        $folder_term->term_id
-    );
-    
-    // Add ordering to query
-    $order_sql = '';
-    if ($order === 'title') {
-        $order_sql = ' ORDER BY p.post_title ASC';
-    } elseif ($order === 'date') {
-        $order_sql = ' ORDER BY p.post_date DESC';
-    } else {
-        $order_sql = ' ORDER BY p.menu_order ASC, p.post_title ASC';
-    }
-    
-    // Add exclude IDs if any
-    if (!empty($exclude_ids)) {
-        $exclude_sql = " AND p.ID NOT IN (" . implode(',', $exclude_ids) . ")";
-        $query .= $exclude_sql;
-    }
-    
-    // Add ordering
-    $query .= $order_sql;
-    
-    // Debug query
-    if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+    // Additional debug info about the selected folder
+    if (current_user_can('manage_options') || is_user_logged_in()) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
-        $debug .= '<p><strong>SQL Query:</strong></p>';
-        $debug .= '<pre>' . esc_html($query) . '</pre>';
+        $debug .= '<p><strong>Selected Folder Details:</strong></p>';
+        $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
+        $debug .= '<p>Slug: ' . esc_html($folder_term->slug) . '</p>';
+        $debug .= '<p>Term ID: ' . esc_html($folder_term->term_id) . '</p>';
         $debug .= '</div>';
     }
     
-    $pages = $wpdb->get_results($query);
+    // Use WordPress core function to get pages in this folder - simplest approach
+    $page_ids = get_objects_in_term($folder_term->term_id, 'folder');
+    
+    // Filter to only include published pages
+    if (!empty($page_ids)) {
+        $page_ids_str = implode(',', array_map('intval', $page_ids));
+        $published_query = "SELECT ID FROM {$wpdb->posts} WHERE ID IN ({$page_ids_str}) AND post_type = 'page' AND post_status = 'publish'";
+        
+        // Add exclude IDs if any
+        if (!empty($exclude_ids)) {
+            $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
+            $published_query .= " AND ID NOT IN ({$exclude_ids_str})";
+        }
+        
+        // Add ordering
+        if ($order === 'title') {
+            $published_query .= " ORDER BY post_title ASC";
+        } elseif ($order === 'date') {
+            $published_query .= " ORDER BY post_date DESC";
+        } else {
+            $published_query .= " ORDER BY menu_order ASC, post_title ASC";
+        }
+        
+        // Get the final list of page IDs
+        $page_ids = $wpdb->get_col($published_query);
+    }
+    
+    // Debug page IDs
+    if (current_user_can('manage_options') || is_user_logged_in()) {
+        $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
+        $debug .= '<p><strong>Page IDs in Folder:</strong></p>';
+        if (!empty($page_ids)) {
+            $debug .= '<p>' . implode(', ', $page_ids) . '</p>';
+            
+            // Add page titles for easier identification
+            $debug .= '<p><strong>Pages with titles:</strong></p><ul>';
+            foreach ($page_ids as $page_id) {
+                $title = get_the_title($page_id);
+                $permalink = get_permalink($page_id);
+                $debug .= '<li>ID ' . $page_id . ': <a href="' . esc_url($permalink) . '" target="_blank">' . esc_html($title) . '</a></li>';
+            }
+            $debug .= '</ul>';
+        } else {
+            $debug .= '<p>No page IDs found in this folder.</p>';
+        }
+        $debug .= '</div>';
+    }
+    
+    // Get pages by ID
+    $pages = array();
+    if (!empty($page_ids)) {
+        foreach ($page_ids as $page_id) {
+            $page = get_post($page_id);
+            if ($page && $page->post_type == 'page' && $page->post_status == 'publish') {
+                $pages[] = $page;
+            }
+        }
+    }
     
     if (empty($pages)) {
-        if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+        if (current_user_can('manage_options') || is_user_logged_in()) {
             return $debug . '<p>No pages found in the selected folder.</p>';
         }
         return '<p>No pages found.</p>';
@@ -544,7 +579,7 @@ function display_enhanced_page_sitemap($atts) {
     
     // Build output
     $output = '';
-    if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+    if (current_user_can('manage_options') || is_user_logged_in()) {
         $output .= $debug;
     }
     
