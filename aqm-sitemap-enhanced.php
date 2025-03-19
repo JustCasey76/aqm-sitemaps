@@ -433,6 +433,36 @@ add_action('admin_notices', 'aqm_admin_debug_notice');
 function display_enhanced_page_sitemap($atts) {
     global $wpdb;
     
+    // SUPER AGGRESSIVE DEBUG - Always show no matter what
+    echo '<!--AQM SITEMAP DEBUG START-->';
+    echo '<div style="background:#ff6600;color:white;padding:15px;margin:20px 0;border:3px solid red;font-size:16px;font-family:monospace;">';
+    echo '<h2 style="color:white;margin:0 0 10px;">SITEMAP DEBUG (FORCED)</h2>';
+    echo '<p>Current Time: ' . date('Y-m-d H:i:s') . '</p>';
+    echo '<p>Shortcode: ' . current_filter() . '</p>';
+    echo '<p>Attributes: ' . (is_array($atts) ? print_r($atts, true) : 'NONE') . '</p>';
+    
+    // Check Premio Folders 
+    echo '<h3 style="color:white;">Premio Folders Check:</h3>';
+    $terms = get_terms(array(
+        'taxonomy' => 'folder',
+        'hide_empty' => false,
+    ));
+    
+    if (is_wp_error($terms)) {
+        echo '<p>ERROR: ' . $terms->get_error_message() . '</p>';
+    } elseif (empty($terms)) {
+        echo '<p>No folder terms found. Premio Folders might not be active or no folders created.</p>';
+    } else {
+        echo '<ul>';
+        foreach ($terms as $term) {
+            echo '<li>' . $term->name . ' [' . $term->slug . '] (ID: ' . $term->term_id . ')</li>';
+        }
+        echo '</ul>';
+    }
+    
+    echo '</div>';
+    echo '<!--AQM SITEMAP DEBUG END-->';
+    
     // Force debug output for all views temporarily
     $show_debug = true;
     
