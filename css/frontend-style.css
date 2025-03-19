@@ -1,0 +1,125 @@
+/* AQM Sitemap Enhanced Frontend Styles - v1.0.3 */
+
+/* Base sitemap styles */
+.aqm-sitemap {
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* New Column layout with top-to-bottom ordering */
+.sitemap-columns-container {
+    display: flex;
+    width: 100%;
+    gap: 1rem;
+}
+
+.sitemap-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.sitemap-column .sitemap-item {
+    margin: 0 0 0.5rem 0 !important;
+}
+
+/* Backward compatibility for old column layout */
+body .aqm-sitemap.columns {
+    display: block !important;
+    width: 100% !important;
+}
+
+body .aqm-sitemap.columns .sitemap-item {
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 !important;
+}
+
+body .aqm-sitemap.columns a {
+    display: block !important;
+}
+
+/* Explicit column settings */
+body .aqm-sitemap.columns.columns-1 {
+    grid-template-columns: 1fr !important;
+}
+
+body .aqm-sitemap.columns.columns-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+}
+
+body .aqm-sitemap.columns.columns-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+}
+
+body .aqm-sitemap.columns.columns-4 {
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+body .aqm-sitemap.columns.columns-5 {
+    grid-template-columns: repeat(5, 1fr) !important;
+}
+
+body .aqm-sitemap.columns.columns-6 {
+    grid-template-columns: repeat(6, 1fr) !important;
+}
+
+/* Inline layout - minimal styling, let Divi handle the rest */
+body .aqm-sitemap.inline {
+    display: block !important;
+}
+
+body .aqm-sitemap.inline a {
+    display: inline !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    body .aqm-sitemap.columns.columns-5,
+    body .aqm-sitemap.columns.columns-6 {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+}
+
+@media (max-width: 992px) {
+    body .aqm-sitemap.columns.columns-4,
+    body .aqm-sitemap.columns.columns-5,
+    body .aqm-sitemap.columns.columns-6 {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    body .aqm-sitemap.columns.columns-3,
+    body .aqm-sitemap.columns.columns-4,
+    body .aqm-sitemap.columns.columns-5,
+    body .aqm-sitemap.columns.columns-6 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .sitemap-columns-container {
+        flex-wrap: wrap;
+    }
+    
+    .sitemap-column {
+        flex: 0 0 50%;
+        padding: 0 0.5rem;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 480px) {
+    body .aqm-sitemap.columns {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .sitemap-columns-container {
+        display: block;
+    }
+    
+    .sitemap-column {
+        flex: none;
+        width: 100%;
+        padding: 0;
+    }
+}
