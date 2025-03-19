@@ -418,9 +418,23 @@ function aqm_delete_shortcode() {
 }
 add_action('wp_ajax_aqm_delete_shortcode', 'aqm_delete_shortcode');
 
+// Add admin notice to ensure debug is showing
+function aqm_admin_debug_notice() {
+    // Only show on admin pages
+    if (!is_admin()) return;
+    
+    echo '<div class="notice notice-info is-dismissible">
+        <p><strong>AQM Sitemap Debug:</strong> Enhanced debugging is enabled for all logged-in users. Make sure you are logged in when viewing pages with the sitemap shortcode to see debug information.</p>
+    </div>';
+}
+add_action('admin_notices', 'aqm_admin_debug_notice');
+
 // The actual shortcode function
 function display_enhanced_page_sitemap($atts) {
     global $wpdb;
+    
+    // Force debug output for all views temporarily
+    $show_debug = true;
     
     // Ensure our styles are loaded with forced cache busting
     $css_version = AQM_SITEMAP_VERSION . '.' . time(); // Ultra-aggressive cache busting
@@ -457,12 +471,12 @@ function display_enhanced_page_sitemap($atts) {
         }
     }
     
-    // Debug information for admins - always show for any logged-in user temporarily
+    // Debug information always shown for development
     $debug = '';
-    // Check if user is admin AND debug is enabled in settings
-    if (current_user_can('manage_options') || is_user_logged_in()) {
+    if ($show_debug) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
         $debug .= '<p><strong>Debug Info:</strong></p>';
+        $debug .= '<p>Shortcode used: ' . current_filter() . '</p>';
         $debug .= '<p>Folder: ' . esc_html($folder_slug) . '</p>';
         $debug .= '<p>Excluded IDs: ' . (!empty($exclude_ids) ? esc_html(implode(', ', $exclude_ids)) : 'None') . '</p>';
         
@@ -486,23 +500,17 @@ function display_enhanced_page_sitemap($atts) {
     
     // Check if folder slug is empty
     if (empty($folder_slug)) {
-        if (current_user_can('manage_options') || is_user_logged_in()) {
-            return $debug . '<p>Error: No folder_slug provided in shortcode.</p>';
-        }
-        return '<p>No pages found.</p>';
+        return $debug . '<p>Error: No folder_slug provided in shortcode.</p>';
     }
     
     // Get the specific term by slug
     $folder_term = get_term_by('slug', $folder_slug, 'folder');
     if (!$folder_term) {
-        if (current_user_can('manage_options') || is_user_logged_in()) {
-            return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
-        }
-        return '<p>No pages found.</p>';
+        return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
     }
     
     // Additional debug info about the selected folder
-    if (current_user_can('manage_options') || is_user_logged_in()) {
+    if ($show_debug) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
         $debug .= '<p><strong>Selected Folder Details:</strong></p>';
         $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
@@ -539,7 +547,7 @@ function display_enhanced_page_sitemap($atts) {
     }
     
     // Debug page IDs
-    if (current_user_can('manage_options') || is_user_logged_in()) {
+    if ($show_debug) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
         $debug .= '<p><strong>Page IDs in Folder:</strong></p>';
         if (!empty($page_ids)) {
@@ -571,15 +579,12 @@ function display_enhanced_page_sitemap($atts) {
     }
     
     if (empty($pages)) {
-        if (current_user_can('manage_options') || is_user_logged_in()) {
-            return $debug . '<p>No pages found in the selected folder.</p>';
-        }
-        return '<p>No pages found.</p>';
+        return $debug . '<p>No pages found in the selected folder.</p>';
     }
     
     // Build output
     $output = '';
-    if (current_user_can('manage_options') || is_user_logged_in()) {
+    if ($show_debug) {
         $output .= $debug;
     }
     
@@ -658,4 +663,7 @@ function display_enhanced_page_sitemap($atts) {
     
     return $output;
 }
+
+// Also register the plural version of the shortcode for consistency
+add_shortcode('sitemap_pages', 'display_enhanced_page_sitemap');
 add_shortcode('sitemap_page', 'display_enhanced_page_sitemap');
