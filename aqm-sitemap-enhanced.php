@@ -475,48 +475,65 @@ function display_enhanced_page_sitemap($atts) {
         }
         return '<p>No pages found.</p>';
     }
-
-    // Get pages using WP_Query with tax_query for more reliable filtering
-    $args = array(
-        'post_type' => 'page',
-        'post_status' => 'publish',
-        'posts_per_page' => -1,
-        'tax_query' => array(
-            array(
-                'taxonomy' => 'folder',
-                'field' => 'slug',
-                'terms' => $folder_slug,
-                'operator' => 'IN'
-            )
-        )
+    
+    // Get the specific term by slug
+    $folder_term = get_term_by('slug', $folder_slug, 'folder');
+    if (!$folder_term) {
+        if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+            return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
+        }
+        return '<p>No pages found.</p>';
+    }
+    
+    // Use a direct SQL query that exactly matches Premio Folders' database structure
+    $query = $wpdb->prepare(
+        "SELECT p.ID, p.post_title 
+         FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+         INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+         WHERE p.post_type = 'page' 
+         AND p.post_status = 'publish'
+         AND tt.taxonomy = 'folder'
+         AND tt.term_id = %d
+         AND p.ID NOT IN (
+             SELECT tr2.object_id
+             FROM {$wpdb->term_relationships} tr2
+             INNER JOIN {$wpdb->term_taxonomy} tt2 ON tr2.term_taxonomy_id = tt2.term_taxonomy_id
+             WHERE tt2.taxonomy = 'folder'
+             AND tt2.term_id != %d
+         )",
+        $folder_term->term_id,
+        $folder_term->term_id
     );
     
-    // Add ordering
+    // Add ordering to query
+    $order_sql = '';
     if ($order === 'title') {
-        $args['orderby'] = 'title';
-        $args['order'] = 'ASC';
+        $order_sql = ' ORDER BY p.post_title ASC';
     } elseif ($order === 'date') {
-        $args['orderby'] = 'date';
-        $args['order'] = 'DESC';
+        $order_sql = ' ORDER BY p.post_date DESC';
     } else {
-        $args['orderby'] = array('menu_order' => 'ASC', 'title' => 'ASC');
+        $order_sql = ' ORDER BY p.menu_order ASC, p.post_title ASC';
     }
     
     // Add exclude IDs if any
     if (!empty($exclude_ids)) {
-        $args['post__not_in'] = $exclude_ids;
+        $exclude_sql = " AND p.ID NOT IN (" . implode(',', $exclude_ids) . ")";
+        $query .= $exclude_sql;
     }
+    
+    // Add ordering
+    $query .= $order_sql;
     
     // Debug query
     if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
-        $debug .= '<p><strong>Query Args:</strong></p>';
-        $debug .= '<pre>' . print_r($args, true) . '</pre>';
+        $debug .= '<p><strong>SQL Query:</strong></p>';
+        $debug .= '<pre>' . esc_html($query) . '</pre>';
         $debug .= '</div>';
     }
     
-    $query = new WP_Query($args);
-    $pages = $query->posts;
+    $pages = $wpdb->get_results($query);
     
     if (empty($pages)) {
         if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
