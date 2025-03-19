@@ -468,41 +468,55 @@ function display_enhanced_page_sitemap($atts) {
         $debug .= '</div>';
     }
     
-    // Get the folder term ID first to ensure we're getting the right content
-    $folder_term = get_term_by('slug', $folder_slug, 'folder');
-    if (!$folder_term) {
+    // Check if folder slug is empty
+    if (empty($folder_slug)) {
         if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
-            return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
+            return $debug . '<p>Error: No folder_slug provided in shortcode.</p>';
         }
         return '<p>No pages found.</p>';
     }
-    
-    // Build a more direct query to get pages, bypassing some WordPress filters
-    $order_by_sql = $order === 'title' ? 'p.post_title ASC' : 
-                   ($order === 'date' ? 'p.post_date DESC' : 'p.menu_order ASC, p.post_title ASC');
 
-    $exclude_sql = '';
-    if (!empty($exclude_ids)) {
-        $exclude_sql = "AND p.ID NOT IN (" . implode(',', $exclude_ids) . ")";
-    }
-
-    // Get only direct children of the term (exact match)
-    $query = $wpdb->prepare(
-        "SELECT p.ID, p.post_title 
-         FROM {$wpdb->posts} p
-         INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
-         INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-         INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
-         WHERE p.post_type = 'page' 
-         AND p.post_status = 'publish'
-         AND tt.taxonomy = 'folder'
-         AND t.slug = %s
-         {$exclude_sql}
-         ORDER BY {$order_by_sql}",
-        $folder_slug
+    // Get pages using WP_Query with tax_query for more reliable filtering
+    $args = array(
+        'post_type' => 'page',
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'tax_query' => array(
+            array(
+                'taxonomy' => 'folder',
+                'field' => 'slug',
+                'terms' => $folder_slug,
+                'operator' => 'IN'
+            )
+        )
     );
-
-    $pages = $wpdb->get_results($query);
+    
+    // Add ordering
+    if ($order === 'title') {
+        $args['orderby'] = 'title';
+        $args['order'] = 'ASC';
+    } elseif ($order === 'date') {
+        $args['orderby'] = 'date';
+        $args['order'] = 'DESC';
+    } else {
+        $args['orderby'] = array('menu_order' => 'ASC', 'title' => 'ASC');
+    }
+    
+    // Add exclude IDs if any
+    if (!empty($exclude_ids)) {
+        $args['post__not_in'] = $exclude_ids;
+    }
+    
+    // Debug query
+    if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
+        $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
+        $debug .= '<p><strong>Query Args:</strong></p>';
+        $debug .= '<pre>' . print_r($args, true) . '</pre>';
+        $debug .= '</div>';
+    }
+    
+    $query = new WP_Query($args);
+    $pages = $query->posts;
     
     if (empty($pages)) {
         if (current_user_can('manage_options') && get_option('aqm_sitemap_show_debug', 1)) {
