@@ -454,7 +454,8 @@ function display_enhanced_page_sitemap($atts) {
         'display_type' => 'columns',
         'columns' => '2',
         'order' => 'menu_order',
-        'exclude_ids' => '' // Add new parameter to exclude pages by ID
+        'exclude_ids' => '', // Parameter to exclude pages by ID
+        'show_all' => 'no' // New parameter to show all pages
     ), $atts, 'sitemap_page');
 
     // Sanitize attributes
@@ -463,6 +464,7 @@ function display_enhanced_page_sitemap($atts) {
     $columns = intval($atts['columns']);
     $columns = $columns > 0 && $columns <= 6 ? $columns : 2;
     $order = in_array($atts['order'], array('menu_order', 'title', 'date')) ? $atts['order'] : 'menu_order';
+    $show_all = in_array(strtolower($atts['show_all']), array('yes', 'true', '1')) ? true : false;
     
     // Process exclude IDs
     $exclude_ids = array();
@@ -480,7 +482,10 @@ function display_enhanced_page_sitemap($atts) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
         $debug .= '<p><strong>Debug Info:</strong></p>';
         $debug .= '<p>Shortcode used: ' . current_filter() . '</p>';
-        $debug .= '<p>Folder: ' . esc_html($folder_slug) . '</p>';
+        $debug .= '<p>Show All Pages: ' . ($show_all ? 'Yes' : 'No') . '</p>';
+        if (!$show_all) {
+            $debug .= '<p>Folder: ' . esc_html($folder_slug) . '</p>';
+        }
         $debug .= '<p>Excluded IDs: ' . (!empty($exclude_ids) ? esc_html(implode(', ', $exclude_ids)) : 'None') . '</p>';
         
         // Add Premio Folders debugging
@@ -501,64 +506,96 @@ function display_enhanced_page_sitemap($atts) {
         $debug .= '</div>';
     }
     
-    // Check if folder slug is empty
-    if (empty($folder_slug)) {
-        if ($show_debug) {
-            return $debug . '<p>Error: No folder_slug provided in shortcode.</p>';
-        }
-        return '<p>No pages found.</p>';
-    }
+    // Initialize page_ids array
+    $page_ids = array();
     
-    // Get the specific term by slug
-    $folder_term = get_term_by('slug', $folder_slug, 'folder');
-    if (!$folder_term) {
-        if ($show_debug) {
-            return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
-        }
-        return '<p>No pages found.</p>';
-    }
-    
-    // Additional debug info about the selected folder
-    if ($show_debug) {
-        $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
-        $debug .= '<p><strong>Selected Folder Details:</strong></p>';
-        $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
-        $debug .= '<p>Slug: ' . esc_html($folder_term->slug) . '</p>';
-        $debug .= '<p>Term ID: ' . esc_html($folder_term->term_id) . '</p>';
-        $debug .= '</div>';
-    }
-    
-    // Use WordPress core function to get pages in this folder - simplest approach
-    $page_ids = get_objects_in_term($folder_term->term_id, 'folder');
-    
-    // Filter to only include published pages
-    if (!empty($page_ids)) {
-        $page_ids_str = implode(',', array_map('intval', $page_ids));
-        $published_query = "SELECT ID FROM {$wpdb->posts} WHERE ID IN ({$page_ids_str}) AND post_type = 'page' AND post_status = 'publish'";
+    // If show_all is true, get all published pages
+    if ($show_all) {
+        $all_pages_query = "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
         
         // Add exclude IDs if any
         if (!empty($exclude_ids)) {
             $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
-            $published_query .= " AND ID NOT IN ({$exclude_ids_str})";
+            $all_pages_query .= " AND ID NOT IN ({$exclude_ids_str})";
         }
         
         // Add ordering
         if ($order === 'title') {
-            $published_query .= " ORDER BY post_title ASC";
+            $all_pages_query .= " ORDER BY post_title ASC";
         } elseif ($order === 'date') {
-            $published_query .= " ORDER BY post_date DESC";
+            $all_pages_query .= " ORDER BY post_date DESC";
         } else {
-            $published_query .= " ORDER BY menu_order ASC, post_title ASC";
+            $all_pages_query .= " ORDER BY menu_order ASC, post_title ASC";
         }
         
         // Get the final list of page IDs
-        $page_ids = $wpdb->get_col($published_query);
+        $page_ids = $wpdb->get_col($all_pages_query);
+        
+        if ($show_debug) {
+            $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
+            $debug .= '<p><strong>Show All Pages Mode:</strong> Getting all published pages except excluded IDs</p>';
+            $debug .= '</div>';
+        }
+    } else {
+        // Check if folder slug is empty when not showing all
+        if (empty($folder_slug)) {
+            if ($show_debug) {
+                return $debug . '<p>Error: No folder_slug provided in shortcode and show_all is not enabled.</p>';
+            }
+            return '<p>No pages found.</p>';
+        }
+        
+        // Get the specific term by slug
+        $folder_term = get_term_by('slug', $folder_slug, 'folder');
+        if (!$folder_term) {
+            if ($show_debug) {
+                return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
+            }
+            return '<p>No pages found.</p>';
+        }
+        
+        // Additional debug info about the selected folder
+        if ($show_debug) {
+            $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
+            $debug .= '<p><strong>Selected Folder Details:</strong></p>';
+            $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
+            $debug .= '<p>Slug: ' . esc_html($folder_term->slug) . '</p>';
+            $debug .= '<p>Term ID: ' . esc_html($folder_term->term_id) . '</p>';
+            $debug .= '</div>';
+        }
+        
+        // Use WordPress core function to get pages in this folder - simplest approach
+        $page_ids = get_objects_in_term($folder_term->term_id, 'folder');
+        
+        // Filter to only include published pages
+        if (!empty($page_ids)) {
+            $page_ids_str = implode(',', array_map('intval', $page_ids));
+            $published_query = "SELECT ID FROM {$wpdb->posts} WHERE ID IN ({$page_ids_str}) AND post_type = 'page' AND post_status = 'publish'";
+            
+            // Add exclude IDs if any
+            if (!empty($exclude_ids)) {
+                $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
+                $published_query .= " AND ID NOT IN ({$exclude_ids_str})";
+            }
+            
+            // Add ordering
+            if ($order === 'title') {
+                $published_query .= " ORDER BY post_title ASC";
+            } elseif ($order === 'date') {
+                $published_query .= " ORDER BY post_date DESC";
+            } else {
+                $published_query .= " ORDER BY menu_order ASC, post_title ASC";
+            }
+            
+            // Get the final list of page IDs
+            $page_ids = $wpdb->get_col($published_query);
+        }
     }
     
     // Debug page IDs
     if ($show_debug) {
         $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
-        $debug .= '<p><strong>Page IDs in Folder:</strong></p>';
+        $debug .= '<p><strong>Page IDs ' . ($show_all ? '(All Pages)' : 'in Folder') . ':</strong></p>';
         if (!empty($page_ids)) {
             $debug .= '<p>' . implode(', ', $page_ids) . '</p>';
             
@@ -571,7 +608,7 @@ function display_enhanced_page_sitemap($atts) {
             }
             $debug .= '</ul>';
         } else {
-            $debug .= '<p>No page IDs found in this folder.</p>';
+            $debug .= '<p>No page IDs found' . ($show_all ? '' : ' in this folder') . '.</p>';
         }
         $debug .= '</div>';
     }
@@ -589,7 +626,7 @@ function display_enhanced_page_sitemap($atts) {
     
     if (empty($pages)) {
         if ($show_debug) {
-            return $debug . '<p>No pages found in the selected folder.</p>';
+            return $debug . '<p>No pages found' . ($show_all ? '' : ' in the selected folder') . '.</p>';
         }
         return '<p>No pages found.</p>';
     }
