@@ -426,8 +426,12 @@ jQuery(document).ready(function($) {
                     // Update the last check time display
                     $('#last-update-check').text(response.data.last_check);
                     
-                    // Show success message
-                    $status.removeClass('error').addClass('success').text('Update check complete. Refresh page to see if updates are available.').show();
+                    // Show success message with link to plugins page
+                    $status.removeClass('error').addClass('success')
+                           .html('Update check complete. <a href="' + 
+                                 window.location.origin + '/wp-admin/plugins.php' + 
+                                 '">Go to Plugins page</a> to see if updates are available.')
+                           .show();
                     
                     // Log success
                     console.log('Update check complete', response);

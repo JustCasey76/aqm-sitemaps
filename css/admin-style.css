@@ -719,17 +719,31 @@ select:focus, input:focus {
     margin-bottom: 10px;
 }
 
+.update-instructions {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--aqm-border-color);
+}
+
 #update-check-status {
     padding: 4px 10px;
     border-radius: 4px;
     font-size: 14px;
     transition: all 0.3s ease;
+    display: inline-block;
+    margin-top: 10px;
 }
 
 #update-check-status.success {
     background-color: rgba(16, 185, 129, 0.1);
     color: var(--aqm-success-color);
     border: 1px solid var(--aqm-success-color);
+}
+
+#update-check-status.success a {
+    color: var(--aqm-success-color);
+    text-decoration: underline;
+    font-weight: 600;
 }
 
 #update-check-status.error {

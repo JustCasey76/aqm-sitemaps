@@ -2,8 +2,9 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: AQ Marketing
+ * Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  */
 
@@ -13,7 +14,23 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '1.2.0.' . time());
+define('AQM_SITEMAP_VERSION', '1.3.0');
+
+// Include the GitHub Updater
+require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
+
+// Setup GitHub Updater - initialize after plugins are loaded
+function aqm_sitemap_init_github_updater() {
+    // Only setup if class exists
+    if (class_exists('AQM_GitHub_Updater')) {
+        new AQM_GitHub_Updater(
+            __FILE__,
+            'JustCasey76',
+            'aqm-sitemap-enhanced'
+        );
+    }
+}
+add_action('plugins_loaded', 'aqm_sitemap_init_github_updater');
 
 // Add menu item
 function aqm_sitemap_menu() {
@@ -132,9 +149,14 @@ function aqm_force_update_check() {
     // Force WordPress to check for updates
     wp_update_plugins();
     
+    // Get current plugin data
+    $plugin_data = get_plugin_data(__FILE__);
+    $current_version = $plugin_data['Version'];
+    
     wp_send_json_success(array(
         'message' => 'Update check complete',
-        'last_check' => human_time_diff(time(), time()) . ' ago'
+        'last_check' => human_time_diff(time(), time()) . ' ago',
+        'current_version' => $current_version
     ));
 }
 add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
@@ -173,6 +195,10 @@ function aqm_sitemap_page() {
     // Get last update check time
     $last_update_check = get_option('aqm_sitemap_last_update_check', 0);
     $last_check_text = $last_update_check ? human_time_diff($last_update_check, time()) . ' ago' : 'Never';
+    
+    // Get current plugin version
+    $plugin_data = get_plugin_data(__FILE__);
+    $current_version = $plugin_data['Version'];
     ?>
     <div class="wrap">
         <div class="aqm-header">
@@ -206,9 +232,13 @@ function aqm_sitemap_page() {
             <div class="update-check-section">
                 <h3>Plugin Updates</h3>
                 <p>Last update check: <span id="last-update-check"><?php echo esc_html($last_check_text); ?></span></p>
-                <p>Current version: <strong><?php echo esc_html(AQM_SITEMAP_VERSION); ?></strong></p>
+                <p>Current version: <strong><?php echo esc_html($current_version); ?></strong></p>
                 <button id="check-for-updates" class="button button-secondary">Check for Updates</button>
                 <span id="update-check-status" style="margin-left: 10px; display: none;"></span>
+                
+                <div class="update-instructions">
+                    <p class="description">After checking for updates, visit the <a href="<?php echo admin_url('plugins.php'); ?>">Plugins page</a> to see if an update is available.</p>
+                </div>
             </div>
         </div>
         
