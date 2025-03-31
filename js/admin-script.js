@@ -11,20 +11,30 @@ jQuery(document).ready(function($) {
         $('#aqm-sitemap-form')[0].reset();
     }
 
-    // Auto-fill shortcode name when folder is selected
-    $('#folder').on('change', function() {
+    // Auto-fill shortcode name when folder checkboxes change
+    $('.folder-checklist input[type="checkbox"]').on('change', function() {
         // Only auto-fill if not in edit mode and shortcode name is empty
         if ($('#edit_mode').val() !== '1' && !$('#shortcode_name').val().trim()) {
-            console.log('Folder changed'); // Debug log
+            console.log('Folder selection changed'); // Debug log
             
-            const selectedOption = $(this).find('option:selected');
-            const folderName = selectedOption.text();
-            console.log('Selected folder name:', folderName); // Debug log
+            // Get all selected folders
+            const selectedFolders = [];
+            $('.folder-checklist input[type="checkbox"]:checked').each(function() {
+                const folderName = $(this).next('label').text();
+                selectedFolders.push(folderName);
+            });
             
-            // Set the shortcode name to match the selected folder name
-            if (selectedOption.val()) {
+            console.log('Selected folders:', selectedFolders); // Debug log
+            
+            // If at least one folder is selected, set the shortcode name
+            if (selectedFolders.length > 0) {
+                // Use the first selected folder name or "Multi-Folder" if multiple folders selected
+                let shortcodeName = selectedFolders.length === 1 ? 
+                    selectedFolders[0] : 
+                    "Multi-Folder Sitemap";
+                
                 // Remove any special characters but preserve spaces and capitalization
-                const shortcodeName = folderName.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
+                shortcodeName = shortcodeName.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
                 $('#shortcode_name').val(shortcodeName).trigger('change');
                 console.log('Set shortcode name to:', shortcodeName); // Debug log
             } else {
@@ -33,11 +43,6 @@ jQuery(document).ready(function($) {
             }
         }
     });
-
-    // Also trigger on page load if a folder is already selected
-    if ($('#folder').val()) {
-        $('#folder').trigger('change');
-    }
 
     // Toggle columns field visibility based on display type
     $('#display_type').on('change', function() {
@@ -96,7 +101,12 @@ jQuery(document).ready(function($) {
     $('#aqm-sitemap-form').on('submit', function(e) {
         e.preventDefault();
         
-        const folder = $('#folder').val();
+        // Get all selected folders
+        const selectedFolders = [];
+        $('.folder-checklist input[type="checkbox"]:checked').each(function() {
+            selectedFolders.push($(this).val());
+        });
+        
         const displayType = $('#display_type').val();
         const columns = $('#columns').val();
         const order = $('#order').val();
@@ -104,16 +114,20 @@ jQuery(document).ready(function($) {
         const editMode = $('#edit_mode').val() === '1';
         const originalName = $('#original_name').val();
 
-        if (!folder) {
-            alert('Please select a folder');
+        if (selectedFolders.length === 0) {
+            alert('Please select at least one folder');
             return;
         }
 
-        // Get shortcode name from input or generate from folder
+        // Get shortcode name from input or generate from folders
         let shortcodeName = $('#shortcode_name').val().trim();
         if (!shortcodeName) {
-            const folderName = $('#folder option:selected').text().trim();
-            shortcodeName = folderName.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
+            if (selectedFolders.length === 1) {
+                const folderLabel = $(`label[for="folder_${selectedFolders[0]}"]`).text().trim();
+                shortcodeName = folderLabel.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
+            } else {
+                shortcodeName = "Multi-Folder Sitemap";
+            }
         }
 
         let shortcode = '[sitemap_page';
@@ -122,7 +136,15 @@ jQuery(document).ready(function($) {
             shortcode += ` columns="${columns}"`;
         }
         shortcode += ` order="${order}"`;
-        shortcode += ` folder_slug="${folder}"`;
+        
+        // Use folder_slug for single folder (backward compatibility) 
+        // or folder_slugs for multiple folders
+        if (selectedFolders.length === 1) {
+            shortcode += ` folder_slug="${selectedFolders[0]}"`;
+        } else {
+            shortcode += ` folder_slugs="${selectedFolders.join(',')}"`;
+        }
+        
         if (excludeIds) {
             shortcode += ` exclude_ids="${excludeIds}"`;
         }
@@ -212,19 +234,20 @@ jQuery(document).ready(function($) {
         // Merge defaults with parsed attributes
         const finalAttributes = { ...defaultValues, ...attributes };
         
-        if (finalAttributes.folder_slug) {
-            // Helper function to update field with animation
-            function updateFieldWithAnimation($field, value) {
-                const $formGroup = $field.closest('.form-group');
-                $formGroup.css('z-index', '1'); // Ensure the "Updated" text shows above other fields
-                $field.val(value);
-                $field.addClass('highlight-edit');
-                setTimeout(() => {
-                    $field.removeClass('highlight-edit');
-                    $formGroup.css('z-index', ''); // Reset z-index
-                }, 2000);
-            }
-            
+        // Helper function to update field with animation
+        function updateFieldWithAnimation($field, value) {
+            const $formGroup = $field.closest('.form-group');
+            $formGroup.css('z-index', '1'); // Ensure the "Updated" text shows above other fields
+            $field.val(value);
+            $field.addClass('highlight-edit');
+            setTimeout(() => {
+                $field.removeClass('highlight-edit');
+                $formGroup.css('z-index', ''); // Reset z-index
+            }, 2000);
+        }
+        
+        // Check if we have folder data (either folder_slug or folder_slugs)
+        if (finalAttributes.folder_slug || finalAttributes.folder_slugs) {
             // Set edit mode
             $('#edit_mode').val('1');
             $('#original_name').val(name);
@@ -255,16 +278,33 @@ jQuery(document).ready(function($) {
                 updateExcludedIdsInput();
             }
             
+            // Uncheck all folder checkboxes first
+            $('.folder-checklist input[type="checkbox"]').prop('checked', false);
+            
+            // Check the appropriate folder checkboxes
+            let folderSlugs = [];
+            if (finalAttributes.folder_slugs) {
+                // Multiple folders
+                folderSlugs = finalAttributes.folder_slugs.split(',');
+            } else if (finalAttributes.folder_slug) {
+                // Single folder
+                folderSlugs = [finalAttributes.folder_slug];
+            }
+            
+            // Check each folder checkbox that matches our slugs
+            folderSlugs.forEach(slug => {
+                $(`#folder_${slug}`).prop('checked', true);
+            });
+            
             // Scroll to form first
             $('html, body').animate({
                 scrollTop: $('#aqm-sitemap-form').offset().top - 50
             }, 500, function() {
                 // After scrolling, update fields with staggered animations
                 updateFieldWithAnimation($('#shortcode_name'), name);
-                setTimeout(() => updateFieldWithAnimation($('#folder'), finalAttributes.folder_slug), 300);
-                setTimeout(() => updateFieldWithAnimation($('#display_type'), finalAttributes.display_type), 600);
-                setTimeout(() => updateFieldWithAnimation($('#columns'), finalAttributes.columns), 900);
-                setTimeout(() => updateFieldWithAnimation($('#order'), finalAttributes.order), 1200);
+                setTimeout(() => updateFieldWithAnimation($('#display_type'), finalAttributes.display_type), 300);
+                setTimeout(() => updateFieldWithAnimation($('#columns'), finalAttributes.columns), 600);
+                setTimeout(() => updateFieldWithAnimation($('#order'), finalAttributes.order), 900);
             });
             
             // Show/hide columns field based on display type
@@ -279,7 +319,7 @@ jQuery(document).ready(function($) {
             
             console.log('Form populated with values:', finalAttributes);
         } else {
-            console.error('Failed to parse shortcode attributes: folder_slug is missing');
+            console.error('Failed to parse shortcode attributes: folder_slug/folder_slugs is missing');
             alert('Error: Could not parse the shortcode attributes. Please try again.');
         }
     });

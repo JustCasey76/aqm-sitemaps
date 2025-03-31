@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.0
+ * Version: 1.1.0
  * Author: AQ Marketing
  */
 
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '1.0.' . time());
+define('AQM_SITEMAP_VERSION', '1.1.0.' . time());
 
 // Add menu item
 function aqm_sitemap_menu() {
@@ -178,18 +178,23 @@ function aqm_sitemap_page() {
                             <div class="form-section content-settings">
                                 <h3>Content Settings</h3>
                                 <div class="form-group">
-                                    <label for="folder">Select Folder:</label>
-                                    <select id="folder" name="folder" required>
-                                        <option value="">Select a Folder</option>
+                                    <label>Select Folders:</label>
+                                    <div class="folder-checklist">
                                         <?php foreach ($folders as $folder): ?>
                                             <?php 
                                             $folder_name = esc_html($folder->name);
                                             $folder_name = str_replace('-', ' ', $folder_name);
                                             $folder_name = ucwords($folder_name);
                                             ?>
-                                            <option value="<?php echo esc_attr($folder->slug); ?>"><?php echo $folder_name; ?></option>
+                                            <div class="folder-checkbox-item">
+                                                <input type="checkbox" 
+                                                       id="folder_<?php echo esc_attr($folder->slug); ?>" 
+                                                       name="folder[]" 
+                                                       value="<?php echo esc_attr($folder->slug); ?>">
+                                                <label for="folder_<?php echo esc_attr($folder->slug); ?>"><?php echo $folder_name; ?></label>
+                                            </div>
                                         <?php endforeach; ?>
-                                    </select>
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
@@ -321,7 +326,7 @@ function aqm_save_shortcode() {
     $shortcode = isset($_POST['shortcode']) ? sanitize_text_field($_POST['shortcode']) : '';
     $edit_mode = isset($_POST['edit_mode']) ? $_POST['edit_mode'] === '1' : false;
     $original_name = isset($_POST['original_name']) ? sanitize_text_field($_POST['original_name']) : '';
-
+    
     // Log the sanitized data
     error_log('AQM Sitemap: Sanitized data - ' . print_r([
         'name' => $name,
@@ -451,6 +456,7 @@ function display_enhanced_page_sitemap($atts) {
     // Extract shortcode attributes with defaults
     $atts = shortcode_atts(array(
         'folder_slug' => '',
+        'folder_slugs' => '', // New parameter for multiple folders
         'display_type' => 'columns',
         'columns' => '2',
         'order' => 'menu_order',
@@ -460,6 +466,7 @@ function display_enhanced_page_sitemap($atts) {
 
     // Sanitize attributes
     $folder_slug = sanitize_text_field($atts['folder_slug']);
+    $folder_slugs = sanitize_text_field($atts['folder_slugs']);
     $display_type = in_array($atts['display_type'], array('columns', 'inline')) ? $atts['display_type'] : 'columns';
     $columns = intval($atts['columns']);
     $columns = $columns > 0 && $columns <= 6 ? $columns : 2;
@@ -537,39 +544,72 @@ function display_enhanced_page_sitemap($atts) {
             $debug .= '</div>';
         }
     } else {
-        // Check if folder slug is empty when not showing all
-        if (empty($folder_slug)) {
+        // Check if folder slug or slugs are empty when not showing all
+        if (empty($folder_slug) && empty($folder_slugs)) {
             if ($show_debug) {
-                return $debug . '<p>Error: No folder_slug provided in shortcode and show_all is not enabled.</p>';
+                return $debug . '<p>Error: No folder_slug(s) provided in shortcode and show_all is not enabled.</p>';
             }
             return '<p>No pages found.</p>';
         }
         
-        // Get the specific term by slug
-        $folder_term = get_term_by('slug', $folder_slug, 'folder');
-        if (!$folder_term) {
+        $folder_terms = array();
+        $all_page_ids = array();
+        
+        // Handle multiple folder slugs (comma separated)
+        if (!empty($folder_slugs)) {
+            $slug_array = array_map('trim', explode(',', $folder_slugs));
+            
+            foreach ($slug_array as $slug) {
+                $term = get_term_by('slug', $slug, 'folder');
+                if ($term) {
+                    $folder_terms[] = $term;
+                }
+            }
+        }
+        // Handle single folder slug for backward compatibility
+        elseif (!empty($folder_slug)) {
+            $term = get_term_by('slug', $folder_slug, 'folder');
+            if ($term) {
+                $folder_terms[] = $term;
+            }
+        }
+        
+        // If no valid folders found
+        if (empty($folder_terms)) {
             if ($show_debug) {
-                return $debug . '<p>Folder not found: ' . esc_html($folder_slug) . '</p>';
+                return $debug . '<p>No valid folders found.</p>';
             }
             return '<p>No pages found.</p>';
         }
         
-        // Additional debug info about the selected folder
+        // Additional debug info about the selected folders
         if ($show_debug) {
             $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
             $debug .= '<p><strong>Selected Folder Details:</strong></p>';
-            $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
-            $debug .= '<p>Slug: ' . esc_html($folder_term->slug) . '</p>';
-            $debug .= '<p>Term ID: ' . esc_html($folder_term->term_id) . '</p>';
+            
+            foreach ($folder_terms as $folder_term) {
+                $debug .= '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #ddd;">';
+                $debug .= '<p>Name: ' . esc_html($folder_term->name) . '</p>';
+                $debug .= '<p>Slug: ' . esc_html($folder_term->slug) . '</p>';
+                $debug .= '<p>Term ID: ' . esc_html($folder_term->term_id) . '</p>';
+                $debug .= '</div>';
+            }
+            
             $debug .= '</div>';
         }
         
-        // Use WordPress core function to get pages in this folder - simplest approach
-        $page_ids = get_objects_in_term($folder_term->term_id, 'folder');
+        // Get pages from all selected folders
+        foreach ($folder_terms as $folder_term) {
+            $folder_page_ids = get_objects_in_term($folder_term->term_id, 'folder');
+            $all_page_ids = array_merge($all_page_ids, $folder_page_ids);
+        }
+        
+        // Remove duplicates
+        $all_page_ids = array_unique($all_page_ids);
         
         // Filter to only include published pages
-        if (!empty($page_ids)) {
-            $page_ids_str = implode(',', array_map('intval', $page_ids));
+        if (!empty($all_page_ids)) {
+            $page_ids_str = implode(',', array_map('intval', $all_page_ids));
             $published_query = "SELECT ID FROM {$wpdb->posts} WHERE ID IN ({$page_ids_str}) AND post_type = 'page' AND post_status = 'publish'";
             
             // Add exclude IDs if any
