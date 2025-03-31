@@ -2,8 +2,9 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: AQ Marketing
+ * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  */
 
 // Prevent direct access
@@ -12,7 +13,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '1.1.0.' . time());
+define('AQM_SITEMAP_VERSION', '1.2.0.' . time());
 
 // Add menu item
 function aqm_sitemap_menu() {
@@ -103,8 +104,40 @@ function aqm_sitemap_activate() {
     if (get_option('aqm_sitemap_show_debug') === false) {
         add_option('aqm_sitemap_show_debug', 1); // Default to showing debug info
     }
+    
+    // Set the last update check time
+    if (get_option('aqm_sitemap_last_update_check') === false) {
+        add_option('aqm_sitemap_last_update_check', time());
+    }
 }
 register_activation_hook(__FILE__, 'aqm_sitemap_activate');
+
+// Force WordPress to check for updates
+function aqm_force_update_check() {
+    if (!current_user_can('update_plugins')) {
+        wp_send_json_error('Permission denied');
+    }
+    
+    // Verify nonce
+    if (!check_ajax_referer('aqm_sitemap_nonce', 'nonce', false)) {
+        wp_send_json_error('Invalid security token');
+    }
+    
+    // Delete the transient that stores update info
+    delete_site_transient('update_plugins');
+    
+    // Update the last check time
+    update_option('aqm_sitemap_last_update_check', time());
+    
+    // Force WordPress to check for updates
+    wp_update_plugins();
+    
+    wp_send_json_success(array(
+        'message' => 'Update check complete',
+        'last_check' => human_time_diff(time(), time()) . ' ago'
+    ));
+}
+add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
 
 // Main admin page
 function aqm_sitemap_page() {
@@ -136,6 +169,10 @@ function aqm_sitemap_page() {
     
     // Get current debug setting
     $show_debug = get_option('aqm_sitemap_show_debug', 1);
+    
+    // Get last update check time
+    $last_update_check = get_option('aqm_sitemap_last_update_check', 0);
+    $last_check_text = $last_update_check ? human_time_diff($last_update_check, time()) . ' ago' : 'Never';
     ?>
     <div class="wrap">
         <div class="aqm-header">
@@ -164,6 +201,15 @@ function aqm_sitemap_page() {
                     <input type="submit" name="aqm_debug_toggle_submit" class="button button-primary" value="Save Settings">
                 </p>
             </form>
+            
+            <!-- Update Check Section -->
+            <div class="update-check-section">
+                <h3>Plugin Updates</h3>
+                <p>Last update check: <span id="last-update-check"><?php echo esc_html($last_check_text); ?></span></p>
+                <p>Current version: <strong><?php echo esc_html(AQM_SITEMAP_VERSION); ?></strong></p>
+                <button id="check-for-updates" class="button button-secondary">Check for Updates</button>
+                <span id="update-check-status" style="margin-left: 10px; display: none;"></span>
+            </div>
         </div>
         
         <div class="aqm-main-content">

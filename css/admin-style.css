@@ -699,3 +699,41 @@ select:focus, input:focus {
         min-width: 120px;
     }
 }
+
+/* Update Check Section */
+.update-check-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: var(--aqm-surface-color);
+    border: 1px solid var(--aqm-border-color);
+    border-radius: 6px;
+    box-shadow: var(--aqm-shadow-sm);
+}
+
+.update-check-section h3 {
+    margin-top: 0;
+    color: var(--aqm-text-color);
+}
+
+.update-check-section p {
+    margin-bottom: 10px;
+}
+
+#update-check-status {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+#update-check-status.success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--aqm-success-color);
+    border: 1px solid var(--aqm-success-color);
+}
+
+#update-check-status.error {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--aqm-error-color);
+    border: 1px solid var(--aqm-error-color);
+}

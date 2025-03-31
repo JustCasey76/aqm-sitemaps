@@ -402,4 +402,59 @@ jQuery(document).ready(function($) {
             localStorage.setItem('aqm-theme', 'light');
         }
     });
+    
+    // Handle "Check for Updates" button
+    $('#check-for-updates').on('click', function() {
+        const $button = $(this);
+        const $status = $('#update-check-status');
+        const originalText = $button.text();
+        
+        // Disable button and show loading state
+        $button.prop('disabled', true).text('Checking...');
+        $status.hide();
+        
+        // Make AJAX request to trigger update check
+        $.ajax({
+            url: aqmSitemap.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'aqm_force_update_check',
+                nonce: aqmSitemap.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Update the last check time display
+                    $('#last-update-check').text(response.data.last_check);
+                    
+                    // Show success message
+                    $status.removeClass('error').addClass('success').text('Update check complete. Refresh page to see if updates are available.').show();
+                    
+                    // Log success
+                    console.log('Update check complete', response);
+                } else {
+                    // Show error message
+                    $status.removeClass('success').addClass('error').text('Error: ' + response.data).show();
+                    
+                    // Log error
+                    console.error('Update check failed', response);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                // Show error message
+                $status.removeClass('success').addClass('error').text('Error: ' + textStatus).show();
+                
+                // Log error details
+                console.error('AJAX error:', {
+                    status: jqXHR.status,
+                    textStatus: textStatus,
+                    errorThrown: errorThrown,
+                    responseText: jqXHR.responseText
+                });
+            },
+            complete: function() {
+                // Re-enable button and restore original text
+                $button.prop('disabled', false).text(originalText);
+            }
+        });
+    });
 });
