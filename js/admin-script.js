@@ -101,40 +101,79 @@ jQuery(document).ready(function($) {
     $('#aqm-sitemap-form').on('submit', function(e) {
         e.preventDefault();
         
-        // Get all selected folders
+        const shortcodeName = $('#shortcode_name').val().trim();
         const selectedFolders = [];
+        
         $('.folder-checklist input[type="checkbox"]:checked').each(function() {
             selectedFolders.push($(this).val());
         });
         
-        const displayType = $('#display_type').val();
-        const columns = $('#columns').val();
-        const order = $('#order').val();
-        const excludeIds = $('#exclude_ids').val();
-        const editMode = $('#edit_mode').val() === '1';
-        const originalName = $('#original_name').val();
-
         if (selectedFolders.length === 0) {
             alert('Please select at least one folder');
             return;
         }
-
-        // Get shortcode name from input or generate from folders
-        let shortcodeName = $('#shortcode_name').val().trim();
+        
         if (!shortcodeName) {
-            if (selectedFolders.length === 1) {
-                const folderLabel = $(`label[for="folder_${selectedFolders[0]}"]`).text().trim();
-                shortcodeName = folderLabel.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
-            } else {
-                shortcodeName = "Multi-Folder Sitemap";
-            }
+            alert('Please enter a shortcode name');
+            return;
         }
+        
+        // Get all form field values
+        const displayType = $('#display_type').val();
+        const columns = $('#columns').val();
+        const order = $('#order').val();
+        const excludeIds = $('#exclude_ids').val();
+        
+        // Get the margin, icon, and icon color values directly from the form fields
+        let itemMargin = '';
+        if ($('#item_margin').length) {
+            itemMargin = $('#item_margin').val();
+        }
+        
+        // Get icon value - ensure we're getting the actual value from the input field
+        let icon = '';
+        if ($('#icon').length) {
+            icon = $('#icon').val();
+            console.log('Retrieved icon value from field:', icon);
+        }
+        
+        // Get icon_color value - ensure we're getting the actual value from the input field
+        let iconColor = '';
+        if ($('#icon_color').length) {
+            iconColor = $('#icon_color').val();
+            console.log('Retrieved icon_color value from field:', iconColor);
+        }
+        
+        const editMode = $('#edit_mode').val() === '1';
+        const originalName = $('#original_name').val();
+        
+        // Debug log all field values
+        console.log('Form field values:', {
+            shortcodeName,
+            selectedFolders,
+            displayType,
+            columns,
+            order,
+            excludeIds,
+            itemMargin,
+            icon,
+            iconColor,
+            editMode,
+            originalName
+        });
 
+        // Start building the shortcode
         let shortcode = '[sitemap_page';
+        
+        // Add display type
         shortcode += ` display_type="${displayType}"`;
+        
+        // Add columns if display type is columns
         if (displayType === 'columns') {
             shortcode += ` columns="${columns}"`;
         }
+        
+        // Add order
         shortcode += ` order="${order}"`;
         
         // Use folder_slug for single folder (backward compatibility) 
@@ -148,6 +187,36 @@ jQuery(document).ready(function($) {
         if (excludeIds) {
             shortcode += ` exclude_ids="${excludeIds}"`;
         }
+        
+        // Process item_margin - use default only if completely empty
+        const marginValue = (itemMargin && itemMargin.trim() !== '') ? itemMargin.trim() : '10px';
+        shortcode += ` item_margin="${marginValue}"`;
+        console.log('Using margin value in shortcode:', marginValue);
+        
+        // Always add icon parameter regardless of value
+        console.log('Icon value before processing:', icon);
+        // Always include the icon parameter even if empty
+        shortcode += ` icon="${icon ? icon.trim() : ''}"`;
+        console.log('Adding icon to shortcode:', icon ? icon.trim() : '');
+        
+        // Always add icon_color parameter regardless of value
+        console.log('Icon color value before processing:', iconColor);
+        // Always include the icon_color parameter even if empty
+        shortcode += ` icon_color="${iconColor ? iconColor.trim() : ''}"`;
+        console.log('Adding icon_color to shortcode:', iconColor ? iconColor.trim() : '');
+        
+        // Always include icon and icon_color values from the form fields
+        // This ensures they're included in the shortcode regardless of their value
+        shortcode += ` icon="${icon}"`;
+        console.log('Adding icon to shortcode regardless of value:', icon);
+        
+        shortcode += ` icon_color="${iconColor}"`;
+        console.log('Adding icon_color to shortcode regardless of value:', iconColor);
+        
+        // Log the complete shortcode before closing it
+        console.log('Shortcode before closing bracket:', shortcode);
+        
+        
         shortcode += `]`;
 
         // Log the data being sent
@@ -158,17 +227,28 @@ jQuery(document).ready(function($) {
             original_name: originalName
         });
 
+        // Log the final shortcode being sent
+        console.log('Final shortcode being sent to server:', shortcode);
+        
+        // Add form field values to the data object for debugging
+        const formData = {
+            action: 'save_sitemap_shortcode',
+            name: shortcodeName,
+            shortcode: shortcode,
+            edit_mode: editMode ? '1' : '0',
+            original_name: originalName,
+            nonce: aqmSitemap.nonce,
+            // Add these for debugging
+            debug_icon: icon,
+            debug_icon_color: iconColor
+        };
+        
+        console.log('Form data being sent:', formData);
+        
         $.ajax({
             url: aqmSitemap.ajaxurl,
             type: 'POST',
-            data: {
-                action: 'save_sitemap_shortcode',
-                name: shortcodeName,
-                shortcode: shortcode,
-                edit_mode: editMode ? '1' : '0',
-                original_name: originalName,
-                nonce: aqmSitemap.nonce
-            },
+            data: formData,
             success: function(response) {
                 console.log('Server response:', response);
                 if (response.success) {
@@ -206,15 +286,50 @@ jQuery(document).ready(function($) {
             const shortcodeContent = shortcode.match(/\[(.*?)\]/)[1];
             // Remove the shortcode name
             const attributesString = shortcodeContent.replace(/^sitemap_page\s+/, '');
-            // Match all attributes, handling both single and double quotes
+            
+            // Log the raw attributesString for debugging
+            console.log('Raw attributes string:', attributesString);
+            
+            // First, extract icon and icon_color directly with a more specific regex
+            // This handles the case where these attributes might have special characters
+            const iconMatch = attributesString.match(/icon=["']([^"']*)["']/);
+            if (iconMatch && iconMatch[1] !== undefined) {
+                attributes['icon'] = iconMatch[1];
+                console.log('Extracted icon directly:', iconMatch[1]);
+            }
+            
+            const iconColorMatch = attributesString.match(/icon_color=["']([^"']*)["']/);
+            if (iconColorMatch && iconColorMatch[1] !== undefined) {
+                attributes['icon_color'] = iconColorMatch[1];
+                console.log('Extracted icon_color directly:', iconColorMatch[1]);
+            }
+            
+            // Match all other attributes, handling both single and double quotes
+            // Use a more robust regex that can handle all attribute formats
             const matches = attributesString.match(/(\w+)=["']([^"']+)["']/g);
             
             if (matches) {
                 matches.forEach(match => {
-                    const [_, key, value] = match.match(/(\w+)=["']([^"']+)["']/);
-                    attributes[key] = value;
+                    try {
+                        const [_, key, value] = match.match(/(\w+)=["']([^"']+)["']/);
+                        attributes[key] = value;
+                        console.log(`Parsed attribute: ${key} = ${value}`);
+                    } catch (e) {
+                        console.error('Error parsing attribute:', match, e);
+                    }
                 });
             }
+            
+            // Ensure all expected attributes are present and log missing ones
+            const expectedAttributes = ['display_type', 'columns', 'order', 'item_margin', 'icon', 'icon_color'];
+            expectedAttributes.forEach(attr => {
+                if (attributes[attr] === undefined) {
+                    console.log(`Attribute ${attr} not found in shortcode`);
+                }
+            });
+            
+            // Log all found attributes
+            console.log('All parsed attributes:', attributes);
         } catch (error) {
             console.error('Error parsing shortcode:', error);
             alert('Error parsing shortcode. Please try again.');
@@ -228,11 +343,31 @@ jQuery(document).ready(function($) {
             display_type: 'columns',
             columns: '2',
             order: 'menu_order',
-            exclude_ids: ''
+            exclude_ids: '',
+            item_margin: '10px',
+            icon: '',
+            icon_color: ''
         };
 
         // Merge defaults with parsed attributes
-        const finalAttributes = { ...defaultValues, ...attributes };
+        // Make sure to only use defaults if the attribute is completely missing
+        const finalAttributes = {};
+        
+        // First add all parsed attributes
+        Object.keys(attributes).forEach(key => {
+            // Preserve empty strings as they are intentional values
+            finalAttributes[key] = attributes[key];
+        });
+        
+        // Then add defaults only for missing keys (not for empty strings)
+        Object.keys(defaultValues).forEach(key => {
+            if (finalAttributes[key] === undefined) {
+                finalAttributes[key] = defaultValues[key];
+                console.log(`Using default for ${key}: ${defaultValues[key]}`);
+            }
+        });
+        
+        console.log('Final attributes after merging with defaults:', finalAttributes);
         
         // Helper function to update field with animation
         function updateFieldWithAnimation($field, value) {
@@ -302,9 +437,46 @@ jQuery(document).ready(function($) {
             }, 500, function() {
                 // After scrolling, update fields with staggered animations
                 updateFieldWithAnimation($('#shortcode_name'), name);
-                setTimeout(() => updateFieldWithAnimation($('#display_type'), finalAttributes.display_type), 300);
-                setTimeout(() => updateFieldWithAnimation($('#columns'), finalAttributes.columns), 600);
-                setTimeout(() => updateFieldWithAnimation($('#order'), finalAttributes.order), 900);
+                // Ensure we're using the actual values from the shortcode, not defaults
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#display_type'), finalAttributes.display_type);
+                    console.log('Set display_type to:', finalAttributes.display_type);
+                }, 300);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#columns'), finalAttributes.columns);
+                    console.log('Set columns to:', finalAttributes.columns);
+                }, 600);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#order'), finalAttributes.order);
+                    console.log('Set order to:', finalAttributes.order);
+                }, 900);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#item_margin'), finalAttributes.item_margin);
+                    console.log('Set item_margin to:', finalAttributes.item_margin);
+                }, 1200);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#icon'), finalAttributes.icon);
+                    console.log('Set icon to:', finalAttributes.icon);
+                }, 1500);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#icon_color'), finalAttributes.icon_color);
+                    console.log('Set icon_color to:', finalAttributes.icon_color);
+                }, 1800);
+                
+                // Log the values being set for each field
+                console.log('Setting field values:', {
+                    display_type: finalAttributes.display_type,
+                    columns: finalAttributes.columns,
+                    order: finalAttributes.order,
+                    item_margin: finalAttributes.item_margin,
+                    icon: finalAttributes.icon,
+                    icon_color: finalAttributes.icon_color
+                });
             });
             
             // Show/hide columns field based on display type

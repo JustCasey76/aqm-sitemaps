@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '1.3.0');
+define('AQM_SITEMAP_VERSION', '1.3.1');
 
 // Include the GitHub Updater
 require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
@@ -22,8 +22,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php'
 // Setup GitHub Updater - initialize after plugins are loaded
 function aqm_sitemap_init_github_updater() {
     // Only setup if class exists
-    if (class_exists('AQM_GitHub_Updater')) {
-        new AQM_GitHub_Updater(
+    if (class_exists('AQM_Sitemap_GitHub_Updater')) {
+        new AQM_Sitemap_GitHub_Updater(
             __FILE__,
             'JustCasey76',
             'aqm-sitemap-enhanced'
@@ -31,6 +31,42 @@ function aqm_sitemap_init_github_updater() {
     }
 }
 add_action('plugins_loaded', 'aqm_sitemap_init_github_updater');
+
+// Update existing shortcodes to include new parameters
+function aqm_update_shortcodes_with_margin() {
+    // Get saved shortcodes
+    $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
+    $updated = false;
+    
+    if (!empty($saved_shortcodes) && is_array($saved_shortcodes)) {
+        foreach ($saved_shortcodes as $name => $shortcode) {
+            $shortcode_updated = false;
+            
+            // Check if shortcode doesn't already have item_margin parameter
+            if (strpos($shortcode, 'item_margin=') === false) {
+                // Add item_margin parameter before the closing bracket
+                $shortcode = str_replace(']', ' item_margin="10px"]', $shortcode);
+                $shortcode_updated = true;
+            }
+            
+            // If the shortcode was updated, save it
+            if ($shortcode_updated) {
+                $saved_shortcodes[$name] = $shortcode;
+                $updated = true;
+            }
+        }
+        
+        // Save updated shortcodes if changes were made
+        if ($updated) {
+            update_option('aqm_sitemap_shortcodes', $saved_shortcodes);
+        }
+    }
+}
+// Run this function when the admin page loads to ensure all saved shortcodes are updated
+add_action('admin_init', 'aqm_update_shortcodes_with_margin');
+
+// We're removing this function as we want to respect user input
+// and not automatically add parameters to existing shortcodes
 
 // Add menu item
 function aqm_sitemap_menu() {
@@ -305,6 +341,24 @@ function aqm_sitemap_page() {
                                     </select>
                                 </div>
                                 
+                                <div class="form-group">
+                                    <label for="item_margin">Item Bottom Margin:</label>
+                                    <input type="text" id="item_margin" name="item_margin" placeholder="e.g., 10px, 0.5em, etc.">
+                                    <div class="form-help">Set the bottom margin for each list item (e.g., 10px, 0.5em)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="icon">Font Awesome Icon:</label>
+                                    <input type="text" id="icon" name="icon" placeholder="e.g., fa fa-arrow-right">
+                                    <div class="form-help">Add a Font Awesome icon before each list item (e.g., fa fa-arrow-right)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="icon_color">Icon Color:</label>
+                                    <input type="text" id="icon_color" name="icon_color" placeholder="e.g., #ff0000 or red">
+                                    <div class="form-help">Set the color of the icon (hex code or color name)</div>
+                                </div>
+                                
                                 <div class="form-group page-exclusions">
                                     <label for="exclude_ids">Exclude Pages:</label>
                                     <div class="excluded-pages-container">
@@ -362,6 +416,30 @@ function aqm_sitemap_page() {
     <?php
 }
 
+// Helper function to ensure shortcode parameters are included
+function aqm_ensure_shortcode_params($shortcode, $params = array()) {
+    // For each parameter, check if it exists in the shortcode
+    foreach ($params as $param => $value) {
+        // Check if parameter already exists in shortcode
+        if (strpos($shortcode, $param . '=') === false) {
+            // Parameter doesn't exist, add it
+            $shortcode = str_replace(']', ' ' . $param . '="' . $value . '"]', $shortcode);
+            error_log('Added ' . $param . ' parameter to shortcode: ' . $shortcode);
+        } else {
+            // Parameter exists but might have an empty value, update it if value is provided
+            if (!empty($value)) {
+                // Use regex to replace the existing parameter value
+                $pattern = '/(' . $param . '=)["\']([^"\']*)["\']/i';
+                $replacement = '$1"' . $value . '"';
+                $shortcode = preg_replace($pattern, $replacement, $shortcode);
+                error_log('Updated ' . $param . ' parameter in shortcode: ' . $shortcode);
+            }
+        }
+    }
+    
+    return $shortcode;
+}
+
 // Save shortcode
 function aqm_save_shortcode() {
     // Enable error reporting for debugging
@@ -370,6 +448,15 @@ function aqm_save_shortcode() {
     
     // Log the raw POST data
     error_log('AQM Sitemap Raw POST: ' . print_r($_POST, true));
+    
+    // Debug the icon and icon_color parameters
+    if (isset($_POST['debug_icon'])) {
+        error_log('Icon from debug: ' . $_POST['debug_icon']);
+    }
+    
+    if (isset($_POST['debug_icon_color'])) {
+        error_log('Icon color from debug: ' . $_POST['debug_icon_color']);
+    }
 
     // Check if this is an AJAX request
     if (!wp_doing_ajax()) {
@@ -402,6 +489,23 @@ function aqm_save_shortcode() {
     $shortcode = isset($_POST['shortcode']) ? sanitize_text_field($_POST['shortcode']) : '';
     $edit_mode = isset($_POST['edit_mode']) ? $_POST['edit_mode'] === '1' : false;
     $original_name = isset($_POST['original_name']) ? sanitize_text_field($_POST['original_name']) : '';
+    
+    // Get icon and icon_color values directly from the form fields
+    $icon = isset($_POST['icon']) ? sanitize_text_field($_POST['icon']) : '';
+    $icon_color = isset($_POST['icon_color']) ? sanitize_text_field($_POST['icon_color']) : '';
+    
+    // Also check debug parameters as a fallback
+    if (empty($icon) && isset($_POST['debug_icon'])) {
+        $icon = sanitize_text_field($_POST['debug_icon']);
+    }
+    
+    if (empty($icon_color) && isset($_POST['debug_icon_color'])) {
+        $icon_color = sanitize_text_field($_POST['debug_icon_color']);
+    }
+    
+    // Log the icon and icon_color values
+    error_log('AQM Sitemap: Icon value: ' . $icon);
+    error_log('AQM Sitemap: Icon color value: ' . $icon_color);
     
     // Log the sanitized data
     error_log('AQM Sitemap: Sanitized data - ' . print_r([
@@ -446,6 +550,31 @@ function aqm_save_shortcode() {
             unset($saved_shortcodes[$original_name]);
         }
 
+        // Get form field values for icon, icon_color, and item_margin
+        $icon_value = isset($_POST['icon']) ? sanitize_text_field($_POST['icon']) : '';
+        $icon_color_value = isset($_POST['icon_color']) ? sanitize_text_field($_POST['icon_color']) : '';
+        $item_margin_value = isset($_POST['item_margin']) ? sanitize_text_field($_POST['item_margin']) : '10px';
+        
+        // If item_margin is empty, set default value
+        if (empty($item_margin_value)) {
+            $item_margin_value = '10px';
+        }
+        
+        // Log the values we're going to use
+        error_log('Using values for shortcode parameters:');
+        error_log('icon: ' . $icon_value);
+        error_log('icon_color: ' . $icon_color_value);
+        error_log('item_margin: ' . $item_margin_value);
+        
+        // Use our helper function to ensure parameters are included
+        $shortcode = aqm_ensure_shortcode_params($shortcode, array(
+            'icon' => $icon_value,
+            'icon_color' => $icon_color_value,
+            'item_margin' => $item_margin_value
+        ));
+        
+        error_log('Final shortcode after ensuring parameters: ' . $shortcode);
+        
         // Save the shortcode
         $saved_shortcodes[$name] = $shortcode;
 
@@ -537,7 +666,10 @@ function display_enhanced_page_sitemap($atts) {
         'columns' => '2',
         'order' => 'menu_order',
         'exclude_ids' => '', // Parameter to exclude pages by ID
-        'show_all' => 'no' // New parameter to show all pages
+        'show_all' => 'no', // New parameter to show all pages
+        'item_margin' => '10px', // New parameter for item bottom margin
+        'icon' => '', // New parameter for Font Awesome icon
+        'icon_color' => '' // New parameter for icon color
     ), $atts, 'sitemap_page');
 
     // Sanitize attributes
@@ -548,6 +680,14 @@ function display_enhanced_page_sitemap($atts) {
     $columns = $columns > 0 && $columns <= 6 ? $columns : 2;
     $order = in_array($atts['order'], array('menu_order', 'title', 'date')) ? $atts['order'] : 'menu_order';
     $show_all = in_array(strtolower($atts['show_all']), array('yes', 'true', '1')) ? true : false;
+    $item_margin = sanitize_text_field($atts['item_margin']);
+    $icon = sanitize_text_field($atts['icon']);
+    $icon_color = sanitize_hex_color($atts['icon_color']) ?: sanitize_text_field($atts['icon_color']);
+    
+    // Ensure item_margin is not empty
+    if (empty($item_margin)) {
+        $item_margin = '10px';
+    }
     
     // Process exclude IDs
     $exclude_ids = array();
@@ -756,7 +896,6 @@ function display_enhanced_page_sitemap($atts) {
     // Create wrapper with classes
     $classes = array('aqm-sitemap');
     if ($display_type === 'columns') {
-        $classes[] = 'columns';
         $classes[] = 'columns-' . esc_attr($columns);
     } else {
         $classes[] = 'inline';
@@ -782,8 +921,8 @@ function display_enhanced_page_sitemap($atts) {
         $total_items = count($pages);
         $items_per_column = ceil($total_items / $columns);
         
-        // Create column layout with inline CSS to force styling
-        $output .= '<div style="display:flex;flex-wrap:wrap;margin:0 -10px;box-sizing:border-box;">';
+        // Create column layout container
+        $output .= '<div class="sitemap-columns-container">';
         
         // Distribute pages across columns (top to bottom ordering)
         for ($col = 0; $col < $columns; $col++) {
@@ -797,20 +936,48 @@ function display_enhanced_page_sitemap($atts) {
             $col_width = (100 / $columns);
             
             // Start column
-            $output .= '<div style="flex:0 0 ' . $col_width . '%;max-width:' . $col_width . '%;padding:0 10px;box-sizing:border-box;">';
+            $output .= '<div class="sitemap-column">';
+            // Start unordered list
+            $output .= '<ul>';
             
             // Add pages for this column
             for ($i = 0; $i < $items_per_column; $i++) {
                 $idx = $start_idx + $i;
                 if ($idx < $total_items) {
+                    // Prepare icon HTML if an icon is specified
+                    $icon_html = '';
+                    if (!empty($icon)) {
+                        $icon_style = 'margin-right:5px;';
+                        
+                        // Add color if specified
+                        if (!empty($icon_color)) {
+                            $icon_style .= 'color:' . esc_attr($icon_color) . ';';
+                        }
+                        
+                        // Use an i tag with fa-solid class prefix
+                        // Make sure we have the fa-solid prefix for Font Awesome 6 compatibility
+                        $icon_class = $icon;
+                        if (strpos($icon, 'fa-solid') === false && strpos($icon, 'fas') === false) {
+                            // Only add fa-solid if it doesn't already have a Font Awesome prefix
+                            if (strpos($icon, 'fa-') === 0) {
+                                $icon_class = 'fa-solid ' . $icon;
+                            }
+                        }
+                        $icon_html = sprintf('<i class="%s" style="%s"></i>', esc_attr($icon_class), $icon_style);
+                    }
+                    
                     $output .= sprintf(
-                        '<div style="margin-bottom:10px;"><a href="%s">%s</a></div>',
+                        '<li style="margin-bottom:%s;"><a href="%s">%s%s</a></li>',
+                        esc_attr($item_margin),
                         esc_url(get_permalink($pages[$idx]->ID)),
+                        $icon_html,
                         esc_html($pages[$idx]->post_title)
                     );
                 }
             }
             
+            // End unordered list
+            $output .= '</ul>';
             // End column
             $output .= '</div>';
         }

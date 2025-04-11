@@ -1,4 +1,4 @@
-/* AQM Sitemap Enhanced Frontend Styles - v1.0.3 */
+/* AQM Sitemap Enhanced Frontend Styles - v1.0.4 */
 
 /* Base sitemap styles */
 .aqm-sitemap {
@@ -7,119 +7,92 @@
     box-sizing: border-box;
 }
 
-/* New Column layout with top-to-bottom ordering */
+/* Column layout */
 .sitemap-columns-container {
     display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
     width: 100%;
-    gap: 1rem;
+    box-sizing: border-box;
 }
 
 .sitemap-column {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    padding: 0 10px;
+    box-sizing: border-box;
 }
 
-.sitemap-column .sitemap-item {
-    margin: 0 0 0.5rem 0 !important;
+.sitemap-column ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
-/* Backward compatibility for old column layout */
-body .aqm-sitemap.columns {
-    display: block !important;
-    width: 100% !important;
+.sitemap-column li {
+    margin-bottom: 10px;
 }
 
-body .aqm-sitemap.columns .sitemap-item {
-    margin: 0 0 0.5rem 0 !important;
-    padding: 0 !important;
+/* Column width settings */
+.columns-1 .sitemap-column {
+    width: 100%;
 }
 
-body .aqm-sitemap.columns a {
-    display: block !important;
+.columns-2 .sitemap-column {
+    width: 50%;
 }
 
-/* Explicit column settings */
-body .aqm-sitemap.columns.columns-1 {
-    grid-template-columns: 1fr !important;
+.columns-3 .sitemap-column {
+    width: 33.333%;
 }
 
-body .aqm-sitemap.columns.columns-2 {
-    grid-template-columns: repeat(2, 1fr) !important;
+.columns-4 .sitemap-column {
+    width: 25%;
 }
 
-body .aqm-sitemap.columns.columns-3 {
-    grid-template-columns: repeat(3, 1fr) !important;
+.columns-5 .sitemap-column {
+    width: 20%;
 }
 
-body .aqm-sitemap.columns.columns-4 {
-    grid-template-columns: repeat(4, 1fr) !important;
+.columns-6 .sitemap-column {
+    width: 16.666%;
 }
 
-body .aqm-sitemap.columns.columns-5 {
-    grid-template-columns: repeat(5, 1fr) !important;
+/* Inline layout */
+.aqm-sitemap.inline a {
+    display: inline;
 }
 
-body .aqm-sitemap.columns.columns-6 {
-    grid-template-columns: repeat(6, 1fr) !important;
-}
-
-/* Inline layout - minimal styling, let Divi handle the rest */
-body .aqm-sitemap.inline {
-    display: block !important;
-}
-
-body .aqm-sitemap.inline a {
-    display: inline !important;
+.aqm-sitemap.inline a:not(:last-child):after {
+    content: ' | ';
 }
 
 /* Responsive adjustments */
 @media (max-width: 1200px) {
-    body .aqm-sitemap.columns.columns-5,
-    body .aqm-sitemap.columns.columns-6 {
-        grid-template-columns: repeat(4, 1fr) !important;
+    .columns-5 .sitemap-column,
+    .columns-6 .sitemap-column {
+        width: 25%;
     }
 }
 
 @media (max-width: 992px) {
-    body .aqm-sitemap.columns.columns-4,
-    body .aqm-sitemap.columns.columns-5,
-    body .aqm-sitemap.columns.columns-6 {
-        grid-template-columns: repeat(3, 1fr) !important;
+    .columns-4 .sitemap-column,
+    .columns-5 .sitemap-column,
+    .columns-6 .sitemap-column {
+        width: 33.333%;
     }
 }
 
 @media (max-width: 768px) {
-    body .aqm-sitemap.columns.columns-3,
-    body .aqm-sitemap.columns.columns-4,
-    body .aqm-sitemap.columns.columns-5,
-    body .aqm-sitemap.columns.columns-6 {
-        grid-template-columns: repeat(2, 1fr) !important;
-    }
-    
-    .sitemap-columns-container {
-        flex-wrap: wrap;
-    }
-    
-    .sitemap-column {
-        flex: 0 0 50%;
-        padding: 0 0.5rem;
-        box-sizing: border-box;
+    .columns-3 .sitemap-column,
+    .columns-4 .sitemap-column,
+    .columns-5 .sitemap-column,
+    .columns-6 .sitemap-column {
+        width: 50%;
     }
 }
 
-@media (max-width: 480px) {
-    body .aqm-sitemap.columns {
-        grid-template-columns: 1fr !important;
-    }
-    
-    .sitemap-columns-container {
-        display: block;
-    }
-    
+/* Mobile - single column */
+@media (max-width: 576px) {
     .sitemap-column {
-        flex: none;
-        width: 100%;
-        padding: 0;
+        width: 100% !important;
     }
 }

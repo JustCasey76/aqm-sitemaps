@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AQM_GitHub_Updater {
+class AQM_Sitemap_GitHub_Updater {
     private $slug;
     private $plugin_data;
     private $username;
