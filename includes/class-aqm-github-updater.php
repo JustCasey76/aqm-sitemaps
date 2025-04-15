@@ -40,9 +40,25 @@ class AQM_Sitemap_GitHub_Updater {
         add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
         
         // Get plugin data
-        $this->plugin_data = get_plugin_data($this->plugin_file);
+        if (function_exists('get_plugin_data')) {
+            $this->plugin_data = get_plugin_data($this->plugin_file);
+        } else {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            $this->plugin_data = get_plugin_data($this->plugin_file);
+        }
+        
         $this->slug = plugin_basename($this->plugin_file);
+        
+        // Check if plugin is active - ensure function exists first
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
         $this->plugin_activated = is_plugin_active($this->slug);
+        
+        // Store activation status in an option for reliability
+        if ($this->plugin_activated) {
+            update_option('aqm_sitemap_was_active', true);
+        }
     }
 
     /**
@@ -238,9 +254,27 @@ class AQM_Sitemap_GitHub_Updater {
     public function post_install($true, $hook_extra, $result) {
         // Check if this is our plugin
         if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->slug) {
-            // Reactivate plugin if it was active before update
-            if ($this->plugin_activated) {
-                activate_plugin($this->slug);
+            // Make sure we have the necessary functions
+            if (!function_exists('activate_plugin') || !function_exists('is_plugin_active')) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+            
+            // Check both the stored property and the option for reliability
+            $was_active = $this->plugin_activated || get_option('aqm_sitemap_was_active', false);
+            
+            if ($was_active) {
+                // Log the reactivation attempt
+                error_log('AQM Sitemap: Attempting to reactivate plugin after update');
+                
+                // Reactivate plugin
+                $activate_result = activate_plugin($this->slug);
+                
+                // Check for activation errors
+                if (is_wp_error($activate_result)) {
+                    error_log('AQM Sitemap: Error reactivating plugin: ' . $activate_result->get_error_message());
+                } else {
+                    error_log('AQM Sitemap: Plugin successfully reactivated after update');
+                }
             }
         }
         

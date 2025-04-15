@@ -22,6 +22,26 @@ function aqm_sitemap_load_textdomain() {
 }
 add_action('init', 'aqm_sitemap_load_textdomain');
 
+// Ensure plugin stays activated after updates
+function aqm_ensure_plugin_activated() {
+    // Check if plugin should be active but isn't
+    if (get_option('aqm_sitemap_was_active', false)) {
+        $plugin_basename = plugin_basename(__FILE__);
+        
+        if (!function_exists('is_plugin_active') || !function_exists('activate_plugin')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        
+        // If plugin is not active, reactivate it
+        if (!is_plugin_active($plugin_basename)) {
+            error_log('AQM Sitemap: Plugin was previously active but is now inactive. Reactivating...');
+            activate_plugin($plugin_basename);
+            error_log('AQM Sitemap: Plugin reactivation completed');
+        }
+    }
+}
+add_action('admin_init', 'aqm_ensure_plugin_activated');
+
 // Include the GitHub Updater
 require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
 
