@@ -1,5 +1,10 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.5 - April 15, 2025
+- Fixed issue with updates creating a new directory with GitHub format name instead of updating existing plugin
+- Added directory name handling during plugin updates
+- Improved update process to ensure proper plugin directory structure
+
 ## 1.3.4 - April 15, 2025
 - Fixed issue with plugin getting deactivated after updates
 - Improved GitHub updater to ensure plugin stays activated

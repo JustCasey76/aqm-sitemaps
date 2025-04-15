@@ -39,6 +39,9 @@ class AQM_Sitemap_GitHub_Updater {
         add_filter('plugins_api', array($this, 'set_plugin_info'), 10, 3);
         add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
         
+        // Add filter to handle directory renaming during extraction
+        add_filter('upgrader_source_selection', array($this, 'rename_github_folder'), 10, 4);
+        
         // Get plugin data
         if (function_exists('get_plugin_data')) {
             $this->plugin_data = get_plugin_data($this->plugin_file);
@@ -154,6 +157,10 @@ class AQM_Sitemap_GitHub_Updater {
                 $obj->package = $github_data['zipball_url'];
                 $obj->tested = '6.5'; // Tested up to this WordPress version
                 
+                // This is critical - it tells WordPress what the source directory name will be
+                // and ensures it will properly replace the existing plugin instead of creating a new directory
+                $obj->source_name = 'aqm-sitemap-enhanced';
+                
                 // Add it to the response
                 $transient->response[$this->slug] = $obj;
             } else {
@@ -243,6 +250,56 @@ class AQM_Sitemap_GitHub_Updater {
         return $changelog;
     }
 
+    /**
+     * Rename the GitHub downloaded folder to match our plugin's directory name
+     * This prevents WordPress from creating a new directory with the GitHub format
+     * 
+     * @param string $source The source directory path
+     * @param string $remote_source The remote source directory path
+     * @param object $upgrader The WordPress upgrader object
+     * @param array $args Additional arguments
+     * @return string Modified source path
+     */
+    public function rename_github_folder($source, $remote_source, $upgrader, $args = array()) {
+        // Check if this is related to our plugin
+        if (!isset($args['plugin']) || $args['plugin'] !== $this->slug) {
+            return $source;
+        }
+        
+        // If the source contains our username and repository name (GitHub format)
+        if (strpos($source, 'JustCasey76-aqm-sitemap-enhanced') !== false) {
+            global $wp_filesystem;
+            
+            // Ensure WordPress filesystem is initialized
+            if (!$wp_filesystem) {
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+                WP_Filesystem();
+            }
+            
+            // The new directory name we want
+            $target_dir = trailingslashit($remote_source) . 'aqm-sitemap-enhanced';
+            
+            // Log the renaming attempt
+            error_log('AQM Sitemap: Renaming GitHub folder from ' . $source . ' to ' . $target_dir);
+            
+            // If the target directory already exists, remove it
+            if ($wp_filesystem->exists($target_dir)) {
+                $wp_filesystem->delete($target_dir, true);
+                error_log('AQM Sitemap: Removed existing target directory');
+            }
+            
+            // Rename the directory
+            if ($wp_filesystem->move($source, $target_dir)) {
+                error_log('AQM Sitemap: Successfully renamed GitHub folder');
+                return $target_dir;
+            } else {
+                error_log('AQM Sitemap: Failed to rename GitHub folder');
+            }
+        }
+        
+        return $source;
+    }
+    
     /**
      * Actions to perform after plugin update
      * 
