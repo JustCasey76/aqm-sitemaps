@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.6 - April 15, 2025
+- Comprehensive fix for GitHub update directory name issue
+- Added multiple layers of directory name handling during updates
+- Implemented package options modification to ensure correct directory name
+- Enhanced debug logging for update process troubleshooting
+
 ## 1.3.5 - April 15, 2025
 - Fixed issue with updates creating a new directory with GitHub format name instead of updating existing plugin
 - Added directory name handling during plugin updates
