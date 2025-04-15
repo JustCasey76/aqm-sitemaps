@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.3 - April 15, 2025
+- Improved dark mode styling for all text elements
+- Enhanced visibility of update instructions and status messages in dark mode
+- Fixed admin notices styling in dark mode
+- Ensured proper contrast for form labels and descriptions
+
 ## 1.3.2 - April 15, 2025
 - Fixed "Check for Updates" button to use a direct link approach instead of AJAX to prevent 502 errors on some hosting environments
 - Added proper textdomain loading to fix WordPress 6.7+ warning about _load_textdomain_just_in_time
