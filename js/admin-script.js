@@ -575,62 +575,37 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // Handle "Check for Updates" button
-    $('#check-for-updates').on('click', function() {
-        const $button = $(this);
-        const $status = $('#update-check-status');
-        const originalText = $button.text();
+    // Convert the Check for Updates button to a direct link
+    $(document).ready(function() {
+        // Find the button
+        const $button = $('#check-for-updates');
         
-        // Disable button and show loading state
-        $button.prop('disabled', true).text('Checking...');
-        $status.hide();
+        if ($button.length) {
+            // Get the button's parent element
+            const $parent = $button.parent();
+            
+            // Create a direct link to replace the button
+            const linkHtml = '<a href="' + window.location.pathname + 
+                           '?page=aqm-sitemap&force-update=1&_wpnonce=' + 
+                           aqmSitemap.nonce + '" ' +
+                           'class="button button-primary" id="check-for-updates-link">' +
+                           'Check for Updates</a>';
+            
+            // Replace the button with the link
+            $button.replaceWith(linkHtml);
+            
+            console.log('Replaced update button with direct link');
+        }
         
-        // Make AJAX request to trigger update check
-        $.ajax({
-            url: aqmSitemap.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'aqm_force_update_check',
-                nonce: aqmSitemap.nonce
-            },
-            success: function(response) {
-                if (response.success) {
-                    // Update the last check time display
-                    $('#last-update-check').text(response.data.last_check);
-                    
-                    // Show success message with link to plugins page
-                    $status.removeClass('error').addClass('success')
-                           .html('Update check complete. <a href="' + 
-                                 window.location.origin + '/wp-admin/plugins.php' + 
-                                 '">Go to Plugins page</a> to see if updates are available.')
-                           .show();
-                    
-                    // Log success
-                    console.log('Update check complete', response);
-                } else {
-                    // Show error message
-                    $status.removeClass('success').addClass('error').text('Error: ' + response.data).show();
-                    
-                    // Log error
-                    console.error('Update check failed', response);
-                }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                // Show error message
-                $status.removeClass('success').addClass('error').text('Error: ' + textStatus).show();
-                
-                // Log error details
-                console.error('AJAX error:', {
-                    status: jqXHR.status,
-                    textStatus: textStatus,
-                    errorThrown: errorThrown,
-                    responseText: jqXHR.responseText
-                });
-            },
-            complete: function() {
-                // Re-enable button and restore original text
-                $button.prop('disabled', false).text(originalText);
-            }
-        });
+        // Show success message if we're on a page with force-update parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('force-update')) {
+            const $status = $('#update-check-status');
+            $status.removeClass('error').addClass('success')
+                   .html('Update check complete. <a href="' + 
+                         window.location.origin + '/wp-admin/plugins.php' + 
+                         '">Go to Plugins page</a> to see if updates are available.')
+                   .show();
+        }
     });
 });

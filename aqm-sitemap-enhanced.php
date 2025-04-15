@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
@@ -14,7 +14,13 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '1.3.1');
+define('AQM_SITEMAP_VERSION', '1.3.2');
+
+// Set up text domain for translations
+function aqm_sitemap_load_textdomain() {
+    load_plugin_textdomain('aqm-sitemap-enhanced', false, dirname(plugin_basename(__FILE__)) . '/languages');
+}
+add_action('init', 'aqm_sitemap_load_textdomain');
 
 // Include the GitHub Updater
 require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
@@ -167,33 +173,47 @@ register_activation_hook(__FILE__, 'aqm_sitemap_activate');
 
 // Force WordPress to check for updates
 function aqm_force_update_check() {
-    if (!current_user_can('update_plugins')) {
-        wp_send_json_error('Permission denied');
+    try {
+        if (!current_user_can('update_plugins')) {
+            wp_send_json_error('Permission denied');
+        }
+        // Verify nonce
+        if (!check_ajax_referer('aqm_sitemap_nonce', 'nonce', false)) {
+            wp_send_json_error('Invalid security token');
+        }
+
+        // Delete the transient that stores update info
+        if (!delete_site_transient('update_plugins')) {
+            error_log('AQM Sitemap: Failed to delete update_plugins transient.');
+        }
+
+        // Update the last check time
+        if (!update_option('aqm_sitemap_last_update_check', time())) {
+            error_log('AQM Sitemap: Failed to update last_update_check option.');
+        }
+
+        // Force WordPress to check for updates
+        if (!function_exists('wp_update_plugins')) {
+            require_once ABSPATH . 'wp-includes/update.php';
+        }
+        wp_update_plugins();
+
+        // Get current plugin data
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugin_data = get_plugin_data(__FILE__);
+        $current_version = isset($plugin_data['Version']) ? $plugin_data['Version'] : 'unknown';
+
+        wp_send_json_success(array(
+            'message' => 'Update check complete',
+            'last_check' => human_time_diff(time(), time()) . ' ago',
+            'current_version' => $current_version
+        ));
+    } catch (Throwable $e) {
+        error_log('AQM Sitemap: AJAX update check fatal error: ' . $e->getMessage());
+        wp_send_json_error('Fatal error: ' . $e->getMessage());
     }
-    
-    // Verify nonce
-    if (!check_ajax_referer('aqm_sitemap_nonce', 'nonce', false)) {
-        wp_send_json_error('Invalid security token');
-    }
-    
-    // Delete the transient that stores update info
-    delete_site_transient('update_plugins');
-    
-    // Update the last check time
-    update_option('aqm_sitemap_last_update_check', time());
-    
-    // Force WordPress to check for updates
-    wp_update_plugins();
-    
-    // Get current plugin data
-    $plugin_data = get_plugin_data(__FILE__);
-    $current_version = $plugin_data['Version'];
-    
-    wp_send_json_success(array(
-        'message' => 'Update check complete',
-        'last_check' => human_time_diff(time(), time()) . ' ago',
-        'current_version' => $current_version
-    ));
 }
 add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
 
@@ -201,6 +221,54 @@ add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
 function aqm_sitemap_page() {
     if (!current_user_can('manage_options')) {
         return;
+    }
+    
+    // Handle direct update check (fallback for AJAX issues)
+    if (isset($_GET['force-update']) && current_user_can('update_plugins')) {
+        try {
+            // Verify nonce - use a softer verification that won't die on failure
+            $nonce_valid = false;
+            if (isset($_REQUEST['_wpnonce'])) {
+                $nonce_valid = wp_verify_nonce($_REQUEST['_wpnonce'], 'aqm_sitemap_nonce');
+            }
+            
+            if (!$nonce_valid) {
+                error_log('AQM Sitemap: Non-AJAX update check failed - invalid nonce');
+                // Don't stop execution, just show an admin notice
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-error"><p>Security verification failed. Please try again.</p></div>';
+                });
+            } else {
+                error_log('AQM Sitemap: Running non-AJAX update check (fallback method)');
+                
+                // Delete the transient that stores update info
+                if (!delete_site_transient('update_plugins')) {
+                    error_log('AQM Sitemap: Failed to delete update_plugins transient in fallback method');
+                }
+                
+                // Update the last check time
+                update_option('aqm_sitemap_last_update_check', time());
+                
+                // Force WordPress to check for updates
+                if (!function_exists('wp_update_plugins')) {
+                    require_once ABSPATH . 'wp-includes/update.php';
+                }
+                wp_update_plugins();
+                
+                // Show success message
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-success"><p>Update check completed successfully.</p></div>';
+                });
+                
+                error_log('AQM Sitemap: Non-AJAX update check completed successfully');
+            }
+        } catch (Exception $e) {
+            error_log('AQM Sitemap: Error in non-AJAX update check: ' . $e->getMessage());
+            // Show error message
+            add_action('admin_notices', function() use ($e) {
+                echo '<div class="notice notice-error"><p>Error checking for updates: ' . esc_html($e->getMessage()) . '</p></div>';
+            });
+        }
     }
 
     // Migrate old shortcodes if needed
