@@ -76,10 +76,12 @@ add_action('admin_init', 'aqm_update_shortcodes_with_margin');
 
 // Add menu item
 function aqm_sitemap_menu() {
+    // Use edit_posts capability which is available to editors and administrators
+    // This is less restrictive than manage_options (admin only)
     add_menu_page(
         'AQM Sitemap',
         'AQM Sitemap',
-        'manage_options',
+        'edit_posts',
         'aqm-sitemap',
         'aqm_sitemap_page',
         'dashicons-layout'
@@ -219,7 +221,8 @@ add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
 
 // Main admin page
 function aqm_sitemap_page() {
-    if (!current_user_can('manage_options')) {
+    // Changed from manage_options to edit_posts to match menu registration
+    if (!current_user_can('edit_posts')) {
         return;
     }
     
