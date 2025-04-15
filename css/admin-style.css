@@ -44,6 +44,32 @@ body[data-theme="dark"] #wpcontent {
     background-color: var(--aqm-bg-color) !important;
 }
 
+/* Make sure all text elements are properly visible in dark mode */
+body[data-theme="dark"] p,
+body[data-theme="dark"] span,
+body[data-theme="dark"] label,
+body[data-theme="dark"] .description,
+body[data-theme="dark"] .form-table th,
+body[data-theme="dark"] .form-wrap p,
+body[data-theme="dark"] .form-wrap label {
+    color: var(--aqm-text-color) !important;
+}
+
+/* Admin notices in dark mode */
+body[data-theme="dark"] .notice {
+    background-color: var(--aqm-surface-color);
+    border-left-color: var(--aqm-accent-color);
+    color: var(--aqm-text-color);
+}
+
+body[data-theme="dark"] .notice-success {
+    border-left-color: var(--aqm-success-color);
+}
+
+body[data-theme="dark"] .notice-error {
+    border-left-color: var(--aqm-error-color);
+}
+
 /* Saved Shortcodes Dark Mode */
 body[data-theme="dark"] .aqm-saved-shortcodes {
     background: var(--aqm-surface-color) !important;
@@ -723,6 +749,11 @@ select:focus, input:focus {
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px solid var(--aqm-border-color);
+    color: var(--aqm-text-color);
+}
+
+body[data-theme="dark"] .update-instructions {
+    color: var(--aqm-text-color);
 }
 
 #update-check-status {
@@ -750,4 +781,23 @@ select:focus, input:focus {
     background-color: rgba(239, 68, 68, 0.1);
     color: var(--aqm-error-color);
     border: 1px solid var(--aqm-error-color);
+}
+
+/* Improved dark mode styling for update status messages */
+body[data-theme="dark"] #update-check-status {
+    color: var(--aqm-text-color);
+}
+
+body[data-theme="dark"] #update-check-status.success {
+    background-color: rgba(52, 211, 153, 0.15);
+    border-color: var(--aqm-success-color);
+}
+
+body[data-theme="dark"] #update-check-status.success a {
+    color: var(--aqm-success-color);
+}
+
+body[data-theme="dark"] #update-check-status.error {
+    background-color: rgba(248, 113, 113, 0.15);
+    border-color: var(--aqm-error-color);
 }
