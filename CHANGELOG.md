@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.7 - April 15, 2025
+- Complete rewrite of the update mechanism to fix directory name issues
+- Changed to use direct GitHub tag downloads instead of API downloads
+- Added fallback copy method if directory renaming fails
+- Enhanced error logging and debugging for update process
+
 ## 1.3.6 - April 15, 2025
 - Comprehensive fix for GitHub update directory name issue
 - Added multiple layers of directory name handling during updates
