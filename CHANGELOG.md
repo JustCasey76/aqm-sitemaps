@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.4 - April 15, 2025
+- Fixed issue with plugin getting deactivated after updates
+- Improved GitHub updater to ensure plugin stays activated
+- Added automatic reactivation mechanism for better reliability
+- Fixed admin page access permissions
+
 ## 1.3.3 - April 15, 2025
 - Improved dark mode styling for all text elements
 - Enhanced visibility of update instructions and status messages in dark mode
