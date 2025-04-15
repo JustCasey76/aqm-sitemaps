@@ -1,8 +1,9 @@
 <?php
 /**
- * AQM GitHub Updater Class
+ * AQM Manual Update Notifier Class
  * 
- * This class handles auto-updates for the AQM Sitemap plugin from GitHub releases.
+ * This class provides manual update notifications for the AQM Sitemap plugin.
+ * It does NOT handle automatic updates, only notifications.
  */
 
 // Exit if accessed directly
@@ -11,15 +12,13 @@ if (!defined('ABSPATH')) {
 }
 
 class AQM_Sitemap_GitHub_Updater {
-    private $slug;
-    private $plugin_data;
-    private $username;
-    private $repository;
     private $plugin_file;
-    private $github_api_result;
-    private $access_token;
-    private $plugin_activated;
-    private $github_response;
+    private $plugin_data;
+    private $github_username;
+    private $github_repository;
+    private $current_version;
+    private $latest_version;
+    private $download_url;
 
     /**
      * Class constructor
@@ -27,45 +26,207 @@ class AQM_Sitemap_GitHub_Updater {
      * @param string $plugin_file Path to the plugin file
      * @param string $github_username GitHub username
      * @param string $github_repository GitHub repository name
-     * @param string $access_token GitHub access token (optional)
      */
-    public function __construct($plugin_file, $github_username, $github_repository, $access_token = '') {
+    public function __construct($plugin_file, $github_username, $github_repository) {
         $this->plugin_file = $plugin_file;
-        $this->username = $github_username;
-        $this->repository = $github_repository;
-        $this->access_token = $access_token;
-        
-        add_filter('pre_set_site_transient_update_plugins', array($this, 'set_transient'));
-        add_filter('plugins_api', array($this, 'set_plugin_info'), 10, 3);
-        add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
-        
-        // Add filters to handle directory renaming during extraction
-        add_filter('upgrader_source_selection', array($this, 'rename_github_folder'), 10, 4);
-        add_filter('upgrader_pre_download', array($this, 'modify_download_package'), 10, 4);
-        add_filter('upgrader_package_options', array($this, 'modify_package_options'));
+        $this->github_username = $github_username;
+        $this->github_repository = $github_repository;
         
         // Get plugin data
-        if (function_exists('get_plugin_data')) {
-            $this->plugin_data = get_plugin_data($this->plugin_file);
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $this->plugin_data = get_plugin_data($this->plugin_file);
+        $this->current_version = $this->plugin_data['Version'];
+        
+        // Add admin notice for updates
+        add_action('admin_init', array($this, 'check_for_updates'));
+        add_action('admin_notices', array($this, 'show_update_notification'));
+        
+        // Add custom row actions
+        add_filter('plugin_action_links_' . plugin_basename($this->plugin_file), array($this, 'add_plugin_action_links'));
+        
+        // Add AJAX handler for manual check
+        add_action('wp_ajax_aqm_check_for_updates', array($this, 'ajax_check_for_updates'));
+        
+        // Add update page to menu
+        add_action('admin_menu', array($this, 'add_update_page'));
+    }
+
+    /**
+     * Check for updates from GitHub
+     */
+    public function check_for_updates() {
+        // Check if we've already checked recently (transient)
+        $update_data = get_transient('aqm_sitemap_update_data');
+        
+        if (false === $update_data || isset($_GET['force-check']) || (defined('DOING_AJAX') && DOING_AJAX)) {
+            // Get latest release from GitHub API
+            $url = 'https://api.github.com/repos/' . $this->github_username . '/' . $this->github_repository . '/releases/latest';
+            
+            // Get API response
+            $response = wp_remote_get($url, array(
+                'sslverify' => true,
+                'user-agent' => 'WordPress/' . get_bloginfo('version')
+            ));
+            
+            // Check for errors
+            if (is_wp_error($response) || 200 !== wp_remote_retrieve_response_code($response)) {
+                error_log('AQM Sitemap: Error checking for updates - ' . wp_remote_retrieve_response_message($response));
+                return;
+            }
+            
+            // Parse response
+            $response_body = wp_remote_retrieve_body($response);
+            $release_data = json_decode($response_body);
+            
+            // Check if we have valid data
+            if (empty($release_data) || !is_object($release_data)) {
+                error_log('AQM Sitemap: Invalid GitHub API response');
+                return;
+            }
+            
+            // Get version number (remove 'v' prefix if present)
+            $this->latest_version = ltrim($release_data->tag_name, 'v');
+            
+            // Set download URL
+            $this->download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data->tag_name . '.zip';
+            
+            // Store update data in transient (cache for 12 hours)
+            $update_data = array(
+                'version' => $this->latest_version,
+                'download_url' => $this->download_url,
+                'last_checked' => time(),
+                'changelog' => isset($release_data->body) ? $release_data->body : ''
+            );
+            
+            set_transient('aqm_sitemap_update_data', $update_data, 12 * HOUR_IN_SECONDS);
         } else {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-            $this->plugin_data = get_plugin_data($this->plugin_file);
-        }
-        
-        $this->slug = plugin_basename($this->plugin_file);
-        
-        // Check if plugin is active - ensure function exists first
-        if (!function_exists('is_plugin_active')) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
-        $this->plugin_activated = is_plugin_active($this->slug);
-        
-        // Store activation status in an option for reliability
-        if ($this->plugin_activated) {
-            update_option('aqm_sitemap_was_active', true);
+            // Use cached data
+            $this->latest_version = $update_data['version'];
+            $this->download_url = $update_data['download_url'];
         }
     }
 
+    /**
+     * Show update notification in admin
+     */
+    public function show_update_notification() {
+        // Only show to users who can update plugins
+        if (!current_user_can('update_plugins')) {
+            return;
+        }
+        
+        // Make sure we have version data
+        if (empty($this->latest_version)) {
+            return;
+        }
+        
+        // Check if there's a new version available
+        if (version_compare($this->latest_version, $this->current_version, '>')) {
+            $update_url = admin_url('admin.php?page=aqm-sitemap-updates');
+            
+            echo '<div class="notice notice-warning">';
+            echo '<p><strong>AQM Enhanced Sitemap Update Available!</strong></p>';
+            echo '<p>Version ' . esc_html($this->latest_version) . ' is available. You are currently using version ' . esc_html($this->current_version) . '.</p>';
+            echo '<p><a href="' . esc_url($update_url) . '" class="button button-primary">View Update Details</a></p>';
+            echo '</div>';
+        }
+    }
+    
+    /**
+     * Add update page to admin menu
+     */
+    public function add_update_page() {
+        add_submenu_page(
+            'aqm-sitemap',
+            'AQM Sitemap Updates',
+            'Updates',
+            'update_plugins',
+            'aqm-sitemap-updates',
+            array($this, 'render_update_page')
+        );
+    }
+    
+    /**
+     * Render the update page
+     */
+    public function render_update_page() {
+        // Check for updates
+        $this->check_for_updates();
+        
+        // Get update data
+        $update_data = get_transient('aqm_sitemap_update_data');
+        $has_update = version_compare($this->latest_version, $this->current_version, '>');
+        
+        echo '<div class="wrap">';
+        echo '<h1>AQM Enhanced Sitemap Updates</h1>';
+        
+        echo '<div class="card">';
+        echo '<h2>Current Version: ' . esc_html($this->current_version) . '</h2>';
+        
+        if ($has_update) {
+            echo '<div class="notice notice-warning inline"><p>New version available: <strong>' . esc_html($this->latest_version) . '</strong></p></div>';
+            
+            echo '<h3>Update Instructions</h3>';
+            echo '<p>To update the plugin, please follow these steps:</p>';
+            echo '<ol>';
+            echo '<li><a href="' . esc_url($this->download_url) . '" class="button button-primary" target="_blank">Download Update</a></li>';
+            echo '<li>Go to Plugins > Add New > Upload Plugin</li>';
+            echo '<li>Choose the downloaded ZIP file and click "Install Now"</li>';
+            echo '<li>After installation is complete, click "Activate Plugin"</li>';
+            echo '</ol>';
+            
+            if (!empty($update_data['changelog'])) {
+                echo '<h3>Changelog</h3>';
+                echo '<pre>' . esc_html($update_data['changelog']) . '</pre>';
+            }
+        } else {
+            echo '<div class="notice notice-success inline"><p>You are using the latest version!</p></div>';
+        }
+        
+        echo '<p><a href="' . esc_url(admin_url('admin.php?page=aqm-sitemap-updates&force-check=1')) . '" class="button">Check for Updates</a></p>';
+        echo '</div>'; // card
+        
+        echo '</div>'; // wrap
+    }
+    
+    /**
+     * Add plugin action links
+     * 
+     * @param array $links Existing action links
+     * @return array Modified action links
+     */
+    public function add_plugin_action_links($links) {
+        $update_link = '<a href="' . admin_url('admin.php?page=aqm-sitemap-updates') . '">Check for Updates</a>';
+        array_unshift($links, $update_link);
+        return $links;
+    }
+    
+    /**
+     * AJAX handler for checking updates
+     */
+    public function ajax_check_for_updates() {
+        // Security check
+        if (!current_user_can('update_plugins')) {
+            wp_die('Unauthorized access');
+        }
+        
+        // Force update check
+        delete_transient('aqm_sitemap_update_data');
+        $this->check_for_updates();
+        
+        $has_update = version_compare($this->latest_version, $this->current_version, '>');
+        
+        wp_send_json(array(
+            'success' => true,
+            'has_update' => $has_update,
+            'current_version' => $this->current_version,
+            'latest_version' => $this->latest_version,
+            'download_url' => $this->download_url
+        ));
+    }
+    
     /**
      * Get repository API info from GitHub
      * 

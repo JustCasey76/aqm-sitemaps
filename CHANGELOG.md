@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 1.3.9 - April 15, 2025
+- Added compatibility with GitHub Updater plugin
+- Enhanced plugin headers for better update handling
+- Added version requirements for WordPress and PHP
+- Removed custom GitHub updater in favor of specialized solution
+
 ## 1.3.7 - April 15, 2025
 - Complete rewrite of the update mechanism to fix directory name issues
 - Changed to use direct GitHub tag downloads instead of API downloads
