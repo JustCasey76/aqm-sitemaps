@@ -1,5 +1,9 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.9 - April 16, 2025
+- Fixed download URL construction in GitHub updater
+- Resolved "Download failed. Not Found" error during updates
+
 ## 2.0.8 - April 16, 2025
 - Test release to verify GitHub updater functionality
 - No functional changes

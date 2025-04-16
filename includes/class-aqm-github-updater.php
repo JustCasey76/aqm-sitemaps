@@ -270,7 +270,7 @@ class AQM_Sitemap_GitHub_Updater {
                 
                 // Instead of using GitHub's zipball URL directly, we'll use a custom URL that
                 // will download the plugin with the correct directory structure
-                $download_url = 'https://github.com/' . $this->username . '/' . $this->repository . '/archive/refs/tags/' . $github_data['tag_name'] . '.zip';
+                $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $github_data['tag_name'] . '.zip';
                 
                 // Log the download URL we're using
                 error_log('AQM Sitemap: Using download URL: ' . $download_url);
