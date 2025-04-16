@@ -447,6 +447,13 @@ class AQM_Sitemap_GitHub_Updater {
         // Log all parameters for debugging
         error_log('AQM Sitemap Debug - Source: ' . $source);
         error_log('AQM Sitemap Debug - Remote Source: ' . $remote_source);
+        error_log('AQM Sitemap Debug - Args: ' . print_r($args, true));
+        
+        // Check if this is our plugin
+        if (!isset($args['plugin']) || $args['plugin'] !== $this->slug) {
+            error_log('AQM Sitemap: Not our plugin, skipping folder rename');
+            return $source;
+        }
         
         $basename = basename($source);
         error_log('AQM Sitemap Debug - Basename: ' . $basename);
@@ -457,44 +464,44 @@ class AQM_Sitemap_GitHub_Updater {
             return $source;
         }
 
-        // Strictly match known GitHub ZIP folder patterns
-        // 1. aqm-sitemap-enhanced-* (tag/release)
-        // 2. JustCasey76-aqm-sitemap-enhanced-* (API/branch/commit)
-        if (preg_match('/^(aqm-sitemap-enhanced(-[\w.-]+)?|JustCasey76-aqm-sitemap-enhanced-[\w.-]+)$/', $basename)) {
-            // Ensure WordPress filesystem is initialized
-            if (!$wp_filesystem) {
-                require_once ABSPATH . 'wp-admin/includes/file.php';
-                WP_Filesystem();
-            }
-            $correct_directory = 'aqm-sitemap-enhanced';
-            $target_dir = trailingslashit($remote_source) . $correct_directory;
-            error_log('AQM Sitemap: Attempting to rename folder from ' . $source . ' to ' . $target_dir);
+        // Create the correctly named directory
+        $correct_directory = 'aqm-sitemap-enhanced';
+        $target_dir = trailingslashit($remote_source) . $correct_directory;
+        error_log('AQM Sitemap: Attempting to rename folder from ' . $source . ' to ' . $target_dir);
 
-            // If the target directory already exists, remove it
-            if ($wp_filesystem->exists($target_dir)) {
-                error_log('AQM Sitemap: Target directory already exists, removing it');
-                $wp_filesystem->delete($target_dir, true);
-            }
-            // Try to move the directory
-            if ($wp_filesystem->move($source, $target_dir)) {
-                error_log('AQM Sitemap: Successfully renamed GitHub folder to ' . $correct_directory);
-                return $target_dir;
-            } else {
-                error_log('AQM Sitemap: Failed to rename folder - WP Filesystem error');
-                // Fallback: recursively copy all files and subdirectories
-                error_log('AQM Sitemap: Attempting to recursively copy directory contents as fallback');
-                if (!$wp_filesystem->exists($target_dir)) {
-                    $wp_filesystem->mkdir($target_dir);
-                }
-                $this->recursive_copy_dir($source, $target_dir, $wp_filesystem);
-                // Clean up the original source folder
-                $wp_filesystem->delete($source, true);
-                return $target_dir;
-            }
+        // Ensure WordPress filesystem is initialized
+        if (!$wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
         }
-        // If not a recognized GitHub pattern, return as is
-        error_log('AQM Sitemap: Folder name did not match expected GitHub patterns. No action taken.');
-        return $source;
+
+        // If the target directory already exists, remove it
+        if ($wp_filesystem->exists($target_dir)) {
+            error_log('AQM Sitemap: Target directory already exists, removing it');
+            $wp_filesystem->delete($target_dir, true);
+        }
+        
+        // Create the target directory
+        if (!$wp_filesystem->mkdir($target_dir)) {
+            error_log('AQM Sitemap: Failed to create target directory');
+            return $source;
+        }
+        
+        // Copy all files from source to target
+        error_log('AQM Sitemap: Copying files from ' . $source . ' to ' . $target_dir);
+        $this->recursive_copy_dir($source, $target_dir, $wp_filesystem);
+        
+        // Verify the copy was successful
+        if (!$wp_filesystem->exists($target_dir . '/aqm-sitemap-enhanced.php')) {
+            error_log('AQM Sitemap: Main plugin file not found in target directory, copy failed');
+            return $source;
+        }
+        
+        // Clean up the original source folder
+        $wp_filesystem->delete($source, true);
+        
+        error_log('AQM Sitemap: Successfully created correct directory structure at ' . $target_dir);
+        return $target_dir;
     }
 
     /**

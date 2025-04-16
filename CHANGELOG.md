@@ -1,5 +1,10 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.1.3 - April 16, 2025
+- Fixed directory structure handling during updates
+- Improved plugin folder renaming during installation
+- Resolved "The package could not be installed" error
+
 ## 2.1.2 - April 16, 2025
 - Test release to verify GitHub update detection
 - No functional changes
