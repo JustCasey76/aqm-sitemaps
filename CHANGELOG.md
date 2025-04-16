@@ -1,5 +1,8 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.3 - April 16, 2025
+- Fixed random <p> tags by cleaning output and removing wpautop/shortcode_unautop filters in the shortcode output function.
+
 ## 2.0.2 - April 16, 2025
 - Ensured plugin header and packaging are correct for GitHub Updater.
 - Clarified release process in code comments.

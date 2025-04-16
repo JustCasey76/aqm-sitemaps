@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Enhanced Sitemap
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 2.0.2
+ * Version: 2.0.3
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '2.0.2');
+define('AQM_SITEMAP_VERSION', '2.0.3');
 
 // Set up text domain for translations
 function aqm_sitemap_load_textdomain() {
@@ -1085,10 +1085,12 @@ function display_enhanced_page_sitemap($atts) {
     // Close main wrapper
     $output .= '</div>';
     
-    // Prevent wpautop from adding empty paragraphs
+    // Remove wpautop and shortcode_unautop filters to prevent unwanted <p> tags
     remove_filter('the_content', 'wpautop');
-    add_filter('the_content', 'wpautop', 99);
-    
+    remove_filter('the_content', 'shortcode_unautop');
+    // Clean up output: trim, collapse whitespace, and remove empty paragraphs
+    $output = trim(preg_replace('/\s+/', ' ', $output));
+    $output = preg_replace('#<p>\s*</p>#', '', $output);
     return $output;
 }
 
