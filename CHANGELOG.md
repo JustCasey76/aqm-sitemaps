@@ -1,5 +1,8 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.5 - April 16, 2025
+- One-click update from Plugins page (native WordPress update integration, no custom update page).
+
 ## 2.0.4 - April 16, 2025
 - Improved GitHub updater logic for robust folder renaming and update reliability.
 

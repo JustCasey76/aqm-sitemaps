@@ -42,16 +42,17 @@ class AQM_Sitemap_GitHub_Updater {
         // Add admin notice for updates
         add_action('admin_init', array($this, 'check_for_updates'));
         add_action('admin_notices', array($this, 'show_update_notification'));
-        
-        // Add custom row actions
-        add_filter('plugin_action_links_' . plugin_basename($this->plugin_file), array($this, 'add_plugin_action_links'));
-        
+
+        // Set plugin slug for update API
+        $this->slug = plugin_basename($this->plugin_file);
+
+        // Enable one-click updates from the Plugins page
+        add_filter('pre_set_site_transient_update_plugins', array($this, 'set_transient'));
+        add_filter('plugins_api', array($this, 'set_plugin_info'), 10, 3);
+
         // Add AJAX handler for manual check
         add_action('wp_ajax_aqm_check_for_updates', array($this, 'ajax_check_for_updates'));
-        
-        // Add update page to menu
-        add_action('admin_menu', array($this, 'add_update_page'));
-    }
+    
 
     /**
      * Check for updates from GitHub
@@ -124,83 +125,11 @@ class AQM_Sitemap_GitHub_Updater {
         
         // Check if there's a new version available
         if (version_compare($this->latest_version, $this->current_version, '>')) {
-            $update_url = admin_url('admin.php?page=aqm-sitemap-updates');
-            
             echo '<div class="notice notice-warning">';
             echo '<p><strong>AQM Enhanced Sitemap Update Available!</strong></p>';
             echo '<p>Version ' . esc_html($this->latest_version) . ' is available. You are currently using version ' . esc_html($this->current_version) . '.</p>';
-            echo '<p><a href="' . esc_url($update_url) . '" class="button button-primary">View Update Details</a></p>';
             echo '</div>';
         }
-    }
-    
-    /**
-     * Add update page to admin menu
-     */
-    public function add_update_page() {
-        add_submenu_page(
-            'aqm-sitemap',
-            'AQM Sitemap Updates',
-            'Updates',
-            'update_plugins',
-            'aqm-sitemap-updates',
-            array($this, 'render_update_page')
-        );
-    }
-    
-    /**
-     * Render the update page
-     */
-    public function render_update_page() {
-        // Check for updates
-        $this->check_for_updates();
-        
-        // Get update data
-        $update_data = get_transient('aqm_sitemap_update_data');
-        $has_update = version_compare($this->latest_version, $this->current_version, '>');
-        
-        echo '<div class="wrap">';
-        echo '<h1>AQM Enhanced Sitemap Updates</h1>';
-        
-        echo '<div class="card">';
-        echo '<h2>Current Version: ' . esc_html($this->current_version) . '</h2>';
-        
-        if ($has_update) {
-            echo '<div class="notice notice-warning inline"><p>New version available: <strong>' . esc_html($this->latest_version) . '</strong></p></div>';
-            
-            echo '<h3>Update Instructions</h3>';
-            echo '<p>To update the plugin, please follow these steps:</p>';
-            echo '<ol>';
-            echo '<li><a href="' . esc_url($this->download_url) . '" class="button button-primary" target="_blank">Download Update</a></li>';
-            echo '<li>Go to Plugins > Add New > Upload Plugin</li>';
-            echo '<li>Choose the downloaded ZIP file and click "Install Now"</li>';
-            echo '<li>After installation is complete, click "Activate Plugin"</li>';
-            echo '</ol>';
-            
-            if (!empty($update_data['changelog'])) {
-                echo '<h3>Changelog</h3>';
-                echo '<pre>' . esc_html($update_data['changelog']) . '</pre>';
-            }
-        } else {
-            echo '<div class="notice notice-success inline"><p>You are using the latest version!</p></div>';
-        }
-        
-        echo '<p><a href="' . esc_url(admin_url('admin.php?page=aqm-sitemap-updates&force-check=1')) . '" class="button">Check for Updates</a></p>';
-        echo '</div>'; // card
-        
-        echo '</div>'; // wrap
-    }
-    
-    /**
-     * Add plugin action links
-     * 
-     * @param array $links Existing action links
-     * @return array Modified action links
-     */
-    public function add_plugin_action_links($links) {
-        $update_link = '<a href="' . admin_url('admin.php?page=aqm-sitemap-updates') . '">Check for Updates</a>';
-        array_unshift($links, $update_link);
-        return $links;
     }
     
     /**
