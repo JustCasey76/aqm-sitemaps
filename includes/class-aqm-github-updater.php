@@ -438,59 +438,76 @@ class AQM_Sitemap_GitHub_Updater {
         error_log('AQM Sitemap Debug - Source: ' . $source);
         error_log('AQM Sitemap Debug - Remote Source: ' . $remote_source);
         
-        // Check if this is our plugin based on the directory name patterns
         $basename = basename($source);
         error_log('AQM Sitemap Debug - Basename: ' . $basename);
-        
-        // Match patterns for our plugin from GitHub
-        // This will match either:
-        // 1. aqm-sitemap-enhanced-1.3.6 (from tag download)
-        // 2. JustCasey76-aqm-sitemap-enhanced-abc1234 (from API download)
-        if (strpos($basename, 'aqm-sitemap-enhanced') !== false) {
+
+        // If already correct, do nothing
+        if ($basename === 'aqm-sitemap-enhanced') {
+            error_log('AQM Sitemap: Folder already correctly named. No action needed.');
+            return $source;
+        }
+
+        // Strictly match known GitHub ZIP folder patterns
+        // 1. aqm-sitemap-enhanced-* (tag/release)
+        // 2. JustCasey76-aqm-sitemap-enhanced-* (API/branch/commit)
+        if (preg_match('/^(aqm-sitemap-enhanced(-[\w.-]+)?|JustCasey76-aqm-sitemap-enhanced-[\w.-]+)$/', $basename)) {
             // Ensure WordPress filesystem is initialized
             if (!$wp_filesystem) {
                 require_once ABSPATH . 'wp-admin/includes/file.php';
                 WP_Filesystem();
             }
-            
-            // Get the correct target directory name
             $correct_directory = 'aqm-sitemap-enhanced';
             $target_dir = trailingslashit($remote_source) . $correct_directory;
-            
             error_log('AQM Sitemap: Attempting to rename folder from ' . $source . ' to ' . $target_dir);
-            
+
             // If the target directory already exists, remove it
             if ($wp_filesystem->exists($target_dir)) {
                 error_log('AQM Sitemap: Target directory already exists, removing it');
                 $wp_filesystem->delete($target_dir, true);
             }
-            
-            // Rename the directory
+            // Try to move the directory
             if ($wp_filesystem->move($source, $target_dir)) {
                 error_log('AQM Sitemap: Successfully renamed GitHub folder to ' . $correct_directory);
                 return $target_dir;
             } else {
                 error_log('AQM Sitemap: Failed to rename folder - WP Filesystem error');
-                
-                // If move fails, try to copy the directory contents instead
-                error_log('AQM Sitemap: Attempting to copy directory contents as fallback');
-                
-                // Create the target directory if it doesn't exist
+                // Fallback: recursively copy all files and subdirectories
+                error_log('AQM Sitemap: Attempting to recursively copy directory contents as fallback');
                 if (!$wp_filesystem->exists($target_dir)) {
                     $wp_filesystem->mkdir($target_dir);
                 }
-                
-                // Copy all files from source to target
-                $files = $wp_filesystem->dirlist($source, true);
-                foreach ($files as $file => $file_info) {
-                    $wp_filesystem->copy($source . '/' . $file, $target_dir . '/' . $file, true, FS_CHMOD_FILE);
-                }
-                
+                $this->recursive_copy_dir($source, $target_dir, $wp_filesystem);
+                // Clean up the original source folder
+                $wp_filesystem->delete($source, true);
                 return $target_dir;
             }
         }
-        
+        // If not a recognized GitHub pattern, return as is
+        error_log('AQM Sitemap: Folder name did not match expected GitHub patterns. No action taken.');
         return $source;
+    }
+
+    /**
+     * Recursively copy all files and subdirectories from source to destination
+     *
+     * @param string $source Source directory
+     * @param string $destination Destination directory
+     * @param WP_Filesystem_Base $wp_filesystem WordPress filesystem object
+     */
+    private function recursive_copy_dir($source, $destination, $wp_filesystem) {
+        $files = $wp_filesystem->dirlist($source, true);
+        foreach ($files as $file => $file_info) {
+            $src_path = trailingslashit($source) . $file;
+            $dst_path = trailingslashit($destination) . $file;
+            if ('f' === $file_info['type']) {
+                $wp_filesystem->copy($src_path, $dst_path, true, FS_CHMOD_FILE);
+            } elseif ('d' === $file_info['type']) {
+                if (!$wp_filesystem->exists($dst_path)) {
+                    $wp_filesystem->mkdir($dst_path);
+                }
+                $this->recursive_copy_dir($src_path, $dst_path, $wp_filesystem);
+            }
+        }
     }
     
     /**
