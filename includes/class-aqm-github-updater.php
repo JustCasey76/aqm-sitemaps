@@ -50,8 +50,20 @@ class AQM_Sitemap_GitHub_Updater {
         add_filter('pre_set_site_transient_update_plugins', array($this, 'set_transient'));
         add_filter('plugins_api', array($this, 'set_plugin_info'), 10, 3);
 
+        // Add "Check for Updates" link to plugin actions
+        add_filter('plugin_action_links_' . plugin_basename($this->plugin_file), array($this, 'add_plugin_action_links'));
+
         // Add AJAX handler for manual check
         add_action('wp_ajax_aqm_check_for_updates', array($this, 'ajax_check_for_updates'));
+        
+        // Add hook to check for manual update checks from the plugins page
+        add_action('admin_init', array($this, 'maybe_check_for_updates'));
+        
+        // Add hooks for renaming GitHub folders during update
+        add_filter('upgrader_source_selection', array($this, 'rename_github_folder'), 10, 4);
+        add_filter('upgrader_package_options', array($this, 'modify_package_options'));
+        add_filter('upgrader_pre_download', array($this, 'modify_download_package'), 10, 4);
+        add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
     }
 
 
@@ -158,6 +170,19 @@ class AQM_Sitemap_GitHub_Updater {
     }
     
     /**
+     * Add plugin action links
+     * 
+     * @param array $links Existing action links
+     * @return array Modified action links
+     */
+    public function add_plugin_action_links($links) {
+        // Add a "Check for Updates" link
+        $check_update_link = '<a href="' . wp_nonce_url(admin_url('plugins.php?aqm_check_for_updates=1&plugin=' . $this->slug), 'aqm-check-update') . '">Check for Updates</a>';
+        array_unshift($links, $check_update_link);
+        return $links;
+    }
+
+    /**
      * Get repository API info from GitHub
      * 
      * @return array|false GitHub API data or false on failure
@@ -171,12 +196,14 @@ class AQM_Sitemap_GitHub_Updater {
         $timeout = 10;
         
         // GitHub API URL to fetch release info
-        $url = "https://api.github.com/repos/{$this->username}/{$this->repository}/releases";
+        $url = "https://api.github.com/repos/{$this->github_username}/{$this->github_repository}/releases";
         
         // Include access token if available
         if (!empty($this->access_token)) {
             $url = add_query_arg(array('access_token' => $this->access_token), $url);
         }
+        
+
         
         // Send remote request
         $response = wp_remote_get($url, array(
@@ -250,12 +277,16 @@ class AQM_Sitemap_GitHub_Updater {
                 
                 // Prepare the update object
                 $obj = new stdClass();
-                $obj->slug = $this->slug;
-                $obj->plugin = $this->slug;
+                $obj->slug = dirname($this->slug); // Use directory name as slug
+                $obj->plugin = $this->slug; // Full path including main file
                 $obj->new_version = $latest_version;
                 $obj->url = $this->plugin_data['PluginURI'];
                 $obj->package = $download_url;
                 $obj->tested = '6.5'; // Tested up to this WordPress version
+                $obj->icons = array(
+                    '1x' => 'https://ps.w.org/plugin-directory-assets/icon-256x256.png', // Default icon
+                    '2x' => 'https://ps.w.org/plugin-directory-assets/icon-256x256.png'  // Default icon
+                );
                 
                 // Add it to the response
                 $transient->response[$this->slug] = $obj;
@@ -266,12 +297,16 @@ class AQM_Sitemap_GitHub_Updater {
             } else {
                 // No update needed, just add to no_update
                 $obj = new stdClass();
-                $obj->slug = $this->slug;
-                $obj->plugin = $this->slug;
+                $obj->slug = dirname($this->slug); // Use directory name as slug
+                $obj->plugin = $this->slug; // Full path including main file
                 $obj->new_version = $current_version;
                 $obj->url = $this->plugin_data['PluginURI'];
                 $obj->package = '';
                 $obj->tested = '6.5';
+                $obj->icons = array(
+                    '1x' => 'https://ps.w.org/plugin-directory-assets/icon-256x256.png', // Default icon
+                    '2x' => 'https://ps.w.org/plugin-directory-assets/icon-256x256.png'  // Default icon
+                );
                 
                 $transient->no_update[$this->slug] = $obj;
             }
@@ -334,12 +369,45 @@ class AQM_Sitemap_GitHub_Updater {
     }
 
     /**
+     * Check if we should manually check for updates (from the plugins page)
+     */
+    public function maybe_check_for_updates() {
+        if (isset($_GET['aqm_check_for_updates']) && $_GET['aqm_check_for_updates'] == '1') {
+            // Verify nonce
+            if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'aqm-check-update')) {
+                wp_die('Security check failed');
+            }
+            
+            // Check if this is our plugin
+            if (isset($_GET['plugin']) && $_GET['plugin'] == $this->slug) {
+                // Clear the update transient to force a fresh check
+                delete_transient('aqm_sitemap_update_data');
+                delete_site_transient('update_plugins');
+                
+                // Force WordPress to check for updates
+                wp_clean_plugins_cache(true);
+                
+                // Redirect back to the plugins page
+                wp_redirect(admin_url('plugins.php?aqm_checked=1'));
+                exit;
+            }
+        }
+        
+        // Show admin notice after checking for updates
+        if (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] == '1') {
+            add_action('admin_notices', function() {
+                echo '<div class="notice notice-success is-dismissible"><p>AQM Enhanced Sitemap: Checked for updates. If an update is available, you will see an update notification.</p></div>';
+            });
+        }
+    }
+
+    /**
      * Format GitHub release notes as changelog
      * 
      * @param string $release_notes GitHub release notes
      * @return string Formatted HTML changelog
      */
-    private function format_github_changelog($release_notes) {
+    public function format_github_changelog($release_notes) {
         // Convert markdown to HTML if needed
         if (function_exists('Markdown')) {
             $changelog = Markdown($release_notes);

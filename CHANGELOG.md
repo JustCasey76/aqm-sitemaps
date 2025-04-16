@@ -1,5 +1,10 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.7 - April 16, 2025
+- Added "Check for Updates" button on Plugins page
+- Fixed GitHub updater to properly display and process updates
+- Improved update notification and one-click update functionality
+
 ## 2.0.6 - April 16, 2025
 - Fixes PHP parse error (missing constructor bracket) for compatibility with WordPress plugin loader.
 
