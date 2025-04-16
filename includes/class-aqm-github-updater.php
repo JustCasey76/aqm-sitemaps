@@ -52,7 +52,8 @@ class AQM_Sitemap_GitHub_Updater {
 
         // Add AJAX handler for manual check
         add_action('wp_ajax_aqm_check_for_updates', array($this, 'ajax_check_for_updates'));
-    
+    }
+
 
     /**
      * Check for updates from GitHub

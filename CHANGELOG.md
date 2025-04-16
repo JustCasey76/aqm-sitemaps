@@ -1,5 +1,8 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.6 - April 16, 2025
+- Fixes PHP parse error (missing constructor bracket) for compatibility with WordPress plugin loader.
+
 ## 2.0.5 - April 16, 2025
 - One-click update from Plugins page (native WordPress update integration, no custom update page).
 
