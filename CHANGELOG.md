@@ -1,5 +1,10 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.1.0 - April 16, 2025
+- Major version update for GitHub release structure compatibility
+- Implemented proper release asset handling for more reliable updates
+- Improved directory structure handling during updates
+
 ## 2.0.9 - April 16, 2025
 - Fixed download URL construction in GitHub updater
 - Resolved "Download failed. Not Found" error during updates
