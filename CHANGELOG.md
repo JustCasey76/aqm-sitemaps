@@ -1,5 +1,9 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.1.2 - April 16, 2025
+- Test release to verify GitHub update detection
+- No functional changes
+
 ## 2.1.1 - April 16, 2025
 - Fixed GitHub API integration to use latest release endpoint directly
 - Improved update detection with enhanced logging
