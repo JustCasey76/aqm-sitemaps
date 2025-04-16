@@ -1,5 +1,9 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.8 - April 16, 2025
+- Test release to verify GitHub updater functionality
+- No functional changes
+
 ## 2.0.7 - April 16, 2025
 - Added "Check for Updates" button on Plugins page
 - Fixed GitHub updater to properly display and process updates
