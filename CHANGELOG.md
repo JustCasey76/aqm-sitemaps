@@ -1,5 +1,10 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.0.2 - April 16, 2025
+- Ensured plugin header and packaging are correct for GitHub Updater.
+- Clarified release process in code comments.
+- No functional code changes.
+
 ## 1.3.9 - April 15, 2025
 - Added compatibility with GitHub Updater plugin
 - Enhanced plugin headers for better update handling
