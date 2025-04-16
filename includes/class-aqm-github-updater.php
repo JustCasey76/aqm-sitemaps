@@ -195,8 +195,11 @@ class AQM_Sitemap_GitHub_Updater {
         // Set a reasonable timeout
         $timeout = 10;
         
-        // GitHub API URL to fetch release info
-        $url = "https://api.github.com/repos/{$this->github_username}/{$this->github_repository}/releases";
+        // GitHub API URL to fetch release info - get latest release directly
+        $url = "https://api.github.com/repos/{$this->github_username}/{$this->github_repository}/releases/latest";
+        
+        // Log the API URL we're using
+        error_log('AQM Sitemap: Checking GitHub API: ' . $url);
         
         // Include access token if available
         if (!empty($this->access_token)) {
@@ -222,12 +225,13 @@ class AQM_Sitemap_GitHub_Updater {
         
         // Parse response
         $response_body = wp_remote_retrieve_body($response);
-        $releases = json_decode($response_body);
+        $latest_release = json_decode($response_body);
         
-        // Check if response is valid and has at least one release
-        if (is_array($releases) && !empty($releases)) {
-            // Get the latest release (first element)
-            $latest_release = $releases[0];
+        // Log the API response for debugging
+        error_log('AQM Sitemap: GitHub API response received');
+        
+        // Check if response is valid
+        if (is_object($latest_release) && !empty($latest_release)) {
             
             // Store the result
             $this->github_response = array(
@@ -380,12 +384,20 @@ class AQM_Sitemap_GitHub_Updater {
             
             // Check if this is our plugin
             if (isset($_GET['plugin']) && $_GET['plugin'] == $this->slug) {
-                // Clear the update transient to force a fresh check
+                // Clear all transients to force a completely fresh check
                 delete_transient('aqm_sitemap_update_data');
                 delete_site_transient('update_plugins');
+                delete_site_transient('aqm_github_data');
+                
+                // Force a fresh check for updates
+                $this->github_response = null; // Clear any cached response
+                $this->check_for_updates(); // Force a new check
                 
                 // Force WordPress to check for updates
                 wp_clean_plugins_cache(true);
+                
+                // Log the update check
+                error_log('AQM Sitemap: Manual update check triggered for ' . $this->slug);
                 
                 // Redirect back to the plugins page
                 wp_redirect(admin_url('plugins.php?aqm_checked=1'));
