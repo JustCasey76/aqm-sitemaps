@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.1.4 - April 17, 2025
+- Completely redesigned GitHub release directory structure handling
+- Added intelligent detection of multiple directory structures
+- Fixed "No valid plugins were found" error during updates
+- Implemented comprehensive plugin file verification
+
 ## 2.1.3 - April 16, 2025
 - Fixed directory structure handling during updates
 - Improved plugin folder renaming during installation
