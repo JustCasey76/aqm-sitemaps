@@ -1,5 +1,11 @@
 # AQM Enhanced Sitemap Changelog
 
+## 2.1.5 - April 17, 2025
+- Implemented support for custom GitHub release assets
+- Added ability to use properly structured ZIP files uploaded to GitHub releases
+- Fixed persistent "The package could not be installed" error
+- Enhanced logging for GitHub release asset detection
+
 ## 2.1.4 - April 17, 2025
 - Completely redesigned GitHub release directory structure handling
 - Added intelligent detection of multiple directory structures

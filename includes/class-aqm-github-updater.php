@@ -237,13 +237,33 @@ class AQM_Sitemap_GitHub_Updater {
         // Check if response is valid
         if (is_object($latest_release) && !empty($latest_release)) {
             
-            // Store the result
+            // Store the result with release assets
+            $assets = array();
+            if (isset($latest_release->assets) && is_array($latest_release->assets)) {
+                foreach ($latest_release->assets as $asset) {
+                    $assets[] = array(
+                        'name' => isset($asset->name) ? $asset->name : '',
+                        'browser_download_url' => isset($asset->browser_download_url) ? $asset->browser_download_url : '',
+                        'size' => isset($asset->size) ? $asset->size : 0,
+                        'created_at' => isset($asset->created_at) ? $asset->created_at : '',
+                    );
+                }
+            }
+            
             $this->github_response = array(
                 'tag_name' => isset($latest_release->tag_name) ? $latest_release->tag_name : null,
                 'published_at' => isset($latest_release->published_at) ? $latest_release->published_at : null,
                 'zipball_url' => isset($latest_release->zipball_url) ? $latest_release->zipball_url : null,
                 'body' => isset($latest_release->body) ? $latest_release->body : '',
+                'assets' => $assets,
             );
+            
+            // Log the assets found
+            if (!empty($assets)) {
+                error_log('AQM Sitemap: Found ' . count($assets) . ' release assets');
+            } else {
+                error_log('AQM Sitemap: No release assets found');
+            }
             
             return $this->github_response;
         }
@@ -276,9 +296,27 @@ class AQM_Sitemap_GitHub_Updater {
             if (version_compare($latest_version, $current_version, '>')) {
                 error_log('AQM Sitemap: Update available - current: ' . $current_version . ', latest: ' . $latest_version);
                 
-                // Instead of using GitHub's zipball URL directly, we'll use a custom URL that
-                // will download the plugin with the correct directory structure
-                $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $github_data['tag_name'] . '.zip';
+                // Instead of using GitHub's auto-generated archive, we'll look for a custom release asset
+                // This allows for properly structured ZIP files to be uploaded to GitHub releases
+                $download_url = '';
+                
+                // Check if there are any release assets
+                if (isset($github_data['assets']) && !empty($github_data['assets'])) {
+                    foreach ($github_data['assets'] as $asset) {
+                        // Look for a ZIP file with the plugin name
+                        if (isset($asset['browser_download_url']) && strpos($asset['name'], '.zip') !== false) {
+                            $download_url = $asset['browser_download_url'];
+                            error_log('AQM Sitemap: Found custom release asset: ' . $asset['name']);
+                            break;
+                        }
+                    }
+                }
+                
+                // If no custom asset was found, fall back to the standard GitHub archive URL
+                if (empty($download_url)) {
+                    $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $github_data['tag_name'] . '.zip';
+                    error_log('AQM Sitemap: No custom release asset found, using standard GitHub archive URL');
+                }
                 
                 // Log the download URL we're using
                 error_log('AQM Sitemap: Using download URL: ' . $download_url);
