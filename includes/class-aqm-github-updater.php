@@ -82,8 +82,9 @@ class AQM_GitHub_Updater {
         $update_data = $this->get_github_update_data();
         
         if ($update_data && version_compare($update_data['version'], $this->current_version, '>')) {
-            // Create a simple object for the updater
+            // Create a standard plugin_information object
             $obj = new stdClass();
+            $obj->id = $this->plugin_basename;
             $obj->slug = dirname($this->plugin_basename);
             $obj->plugin = $this->plugin_basename;
             $obj->new_version = $update_data['version'];
@@ -91,10 +92,18 @@ class AQM_GitHub_Updater {
             $obj->package = $update_data['download_url'];
             $obj->tested = isset($update_data['tested']) ? $update_data['tested'] : '';
             $obj->requires_php = isset($update_data['requires_php']) ? $update_data['requires_php'] : '';
+            $obj->compatibility = new stdClass();
             $obj->icons = array(
                 '1x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-128x128.png',
                 '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
             );
+            
+            // Make sure the package URL is accessible
+            $test_response = wp_remote_head($update_data['download_url'], array('timeout' => 5));
+            if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
+                // Fallback to a direct GitHub download URL if the package URL is not accessible
+                $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
+            }
             
             $transient->response[$this->plugin_basename] = $obj;
         }
@@ -186,6 +195,7 @@ class AQM_GitHub_Updater {
         $plugin_info->slug = dirname($this->plugin_basename);
         $plugin_info->version = $update_data['version'];
         $plugin_info->author = $this->plugin_data['Author'];
+        $plugin_info->author_profile = 'https://github.com/' . $this->github_username;
         $plugin_info->homepage = $this->plugin_data['PluginURI'];
         $plugin_info->requires = $this->plugin_data['RequiresWP'];
         $plugin_info->requires_php = $this->plugin_data['RequiresPHP'];
@@ -195,7 +205,23 @@ class AQM_GitHub_Updater {
             'description' => $this->plugin_data['Description'],
             'changelog' => $update_data['changelog']
         );
-        $plugin_info->download_link = $update_data['download_url'];
+        
+        // Make sure the package URL is accessible
+        $test_response = wp_remote_head($update_data['download_url'], array('timeout' => 5));
+        if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
+            // Fallback to a direct GitHub download URL if the package URL is not accessible
+            $plugin_info->download_link = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
+        } else {
+            $plugin_info->download_link = $update_data['download_url'];
+        }
+        
+        // Add required fields for WordPress 5.5+
+        $plugin_info->id = $this->plugin_basename;
+        $plugin_info->compatibility = new stdClass();
+        $plugin_info->icons = array(
+            '1x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-128x128.png',
+            '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
+        );
         
         return $plugin_info;
     }
