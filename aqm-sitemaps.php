@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '1.0.1');
+define('AQM_SITEMAPS_VERSION', '1.0.2');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -39,6 +39,23 @@ function aqm_sitemaps_init_github_updater() {
     }
 }
 add_action('admin_init', 'aqm_sitemaps_init_github_updater');
+
+// Show update success message
+function aqm_sitemaps_show_update_success() {
+    // Only show on plugins page
+    $screen = get_current_screen();
+    if (!$screen || $screen->id !== 'plugins') {
+        return;
+    }
+    
+    // Check if we're coming from an update
+    if (isset($_GET['aqm_updated']) && $_GET['aqm_updated'] === '1') {
+        echo '<div class="notice notice-success is-dismissible">
+            <p><strong>AQM Sitemaps Updated Successfully!</strong> The plugin has been updated to version ' . AQM_SITEMAPS_VERSION . '.</p>
+        </div>';
+    }
+}
+add_action('admin_notices', 'aqm_sitemaps_show_update_success');
 
 // Ensure plugin stays activated after updates
 function aqm_ensure_plugin_activated() {

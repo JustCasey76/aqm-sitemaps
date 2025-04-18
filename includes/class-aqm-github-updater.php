@@ -53,6 +53,9 @@ class AQM_GitHub_Updater {
         
         // Handle manual update check
         add_action('admin_init', array($this, 'handle_manual_update_check'));
+        
+        // Add success redirect after update
+        $this->add_success_redirect();
     }
 
     /**
@@ -311,6 +314,27 @@ class AQM_GitHub_Updater {
         // Redirect back to the plugins page
         wp_redirect(admin_url('plugins.php?aqm_checked=1'));
         exit;
+    }
+    
+    /**
+     * Add a query parameter to the success redirect URL
+     * This will be called after a successful update
+     */
+    public function add_success_redirect() {
+        add_filter('upgrader_post_install', array($this, 'after_update_success'), 10, 3);
+    }
+    
+    /**
+     * After update success callback
+     */
+    public function after_update_success($response, $hook_extra, $result) {
+        if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->plugin_basename) {
+            // Add our custom redirect parameter
+            add_filter('wp_redirect', function($location) {
+                return add_query_arg('aqm_updated', '1', $location);
+            });
+        }
+        return $response;
     }
     
     /**

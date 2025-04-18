@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.2
+- Improved GitHub updater functionality
+- Fixed update process to work seamlessly with WordPress
+- Enhanced error handling during updates
+
 ### 1.0.1
 - Removed debug settings section from admin interface
 - Simplified plugin settings page
