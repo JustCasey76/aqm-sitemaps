@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.6
+- Stability improvements
+- Minor code optimizations
+- Testing GitHub update mechanism
+
 ### 1.0.5
 - Fixed duplicate method declaration that was causing a fatal error
 - Improved code structure and organization
