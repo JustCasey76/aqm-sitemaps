@@ -33,19 +33,18 @@ class AQM_GitHub_Updater {
         $this->plugin_basename = plugin_basename($plugin_file);
         $this->github_username = $github_username;
         $this->github_repository = $github_repository;
+        $this->transient_name = 'aqm_github_update_' . md5($this->plugin_basename);
         
-        // Get plugin data
+        // Get current plugin data
         if (!function_exists('get_plugin_data')) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            require_once(ABSPATH . 'wp-admin/includes/plugin.php');
         }
         $this->plugin_data = get_plugin_data($this->plugin_file);
         $this->current_version = $this->plugin_data['Version'];
         
-        // Add filters for the update process
+        // Add filters for plugin update checks
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_updates'));
         add_filter('plugins_api', array($this, 'plugin_info'), 10, 3);
-        add_filter('upgrader_source_selection', array($this, 'fix_directory_name'), 10, 4);
-        add_filter('plugin_action_links_' . $this->plugin_basename, array($this, 'add_action_links'));
         
         // Add admin notice for updates
         add_action('admin_notices', array($this, 'show_update_notice'));
@@ -56,6 +55,9 @@ class AQM_GitHub_Updater {
         
         // Add success redirect after update
         $this->add_success_redirect();
+        
+        // Fix directory structure during updates
+        add_filter('upgrader_source_selection', array($this, 'fix_directory_name'), 10, 4);
     }
 
     /**
@@ -204,9 +206,10 @@ class AQM_GitHub_Updater {
         $version = ltrim($release_data['tag_name'], 'v');
         error_log('AQM Sitemaps: Formatted version: ' . $version);
         
-        // Direct download URL for the repository archive
-        $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
-        error_log('AQM Sitemaps: Download URL: ' . $download_url);
+        // Use the zipball_url from the GitHub API response
+        // This is the key difference from our previous approach
+        $download_url = $release_data['zipball_url'];
+        error_log('AQM Sitemaps: Using zipball_url: ' . $download_url);
         
         $update_data = array(
             'version' => $version,
@@ -297,22 +300,31 @@ class AQM_GitHub_Updater {
             return $source;
         }
         
-        // The source directory from GitHub will be named like 'aqm-sitemaps-1.0.1'
-        // We need to rename it to just 'aqm-sitemaps'
-        $desired_folder_name = dirname($this->plugin_basename);
-        $correct_directory = dirname($source) . '/' . $desired_folder_name;
+        error_log('AQM Sitemaps: Fixing directory name during update');
+        error_log('AQM Sitemaps: Source directory: ' . $source);
         
-        // Check if source directory contains the tag name (e.g., 'aqm-sitemaps-1.0.1')
-        if (strpos(basename($source), $desired_folder_name . '-') !== false) {
-            // If the target directory already exists, remove it first
-            if ($wp_filesystem->exists($correct_directory)) {
-                $wp_filesystem->delete($correct_directory, true);
-            }
-            
-            // Rename the directory
-            if ($wp_filesystem->move($source, $correct_directory)) {
-                return $correct_directory;
-            }
+        // Get the expected plugin slug (folder name)
+        $plugin_slug = dirname($this->plugin_basename);
+        error_log('AQM Sitemaps: Plugin slug: ' . $plugin_slug);
+        
+        // GitHub zipball typically creates a directory like 'username-repository-hash'
+        // We need to rename it to match our plugin slug
+        $correct_directory = trailingslashit($remote_source) . $plugin_slug;
+        error_log('AQM Sitemaps: Target directory: ' . $correct_directory);
+        
+        // If the target directory already exists, remove it first
+        if ($wp_filesystem->exists($correct_directory)) {
+            error_log('AQM Sitemaps: Target directory exists, removing it');
+            $wp_filesystem->delete($correct_directory, true);
+        }
+        
+        // Rename the directory
+        error_log('AQM Sitemaps: Attempting to rename ' . $source . ' to ' . $correct_directory);
+        if ($wp_filesystem->move($source, $correct_directory)) {
+            error_log('AQM Sitemaps: Directory renamed successfully');
+            return $correct_directory;
+        } else {
+            error_log('AQM Sitemaps: Failed to rename directory');
         }
         
         return $source;
