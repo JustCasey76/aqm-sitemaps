@@ -77,12 +77,26 @@ class AQM_GitHub_Updater {
      * @return object Modified transient data
      */
     public function check_for_updates($transient) {
-        if (empty($transient->checked)) {
-            return $transient;
+        // Always check for updates, even if the transient is empty
+        if (!is_object($transient)) {
+            $transient = new stdClass();
         }
         
-        // Get update data from GitHub
-        $update_data = $this->get_github_update_data();
+        if (!isset($transient->checked)) {
+            $transient->checked = array();
+        }
+        
+        // Force our plugin to be in the checked list
+        $transient->checked[$this->plugin_basename] = $this->current_version;
+        
+        // Check if we're explicitly checking for updates
+        $force_check = false;
+        if (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] === '1') {
+            $force_check = true;
+        }
+        
+        // Get update data from GitHub, force refresh if explicitly checking
+        $update_data = $this->get_github_update_data($force_check);
         
         if ($update_data && version_compare($update_data['version'], $this->current_version, '>')) {
             // Create a standard plugin_information object
@@ -108,7 +122,21 @@ class AQM_GitHub_Updater {
                 $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
             }
             
+            // Add to the response array
+            if (!isset($transient->response)) {
+                $transient->response = array();
+            }
+            
             $transient->response[$this->plugin_basename] = $obj;
+            
+            // Log that we found an update
+            error_log('AQM Sitemaps: Update available - ' . $this->current_version . ' -> ' . $update_data['version']);
+        } else {
+            // Log that no update was found
+            error_log('AQM Sitemaps: No update available or unable to check - Current version: ' . $this->current_version);
+            if ($update_data) {
+                error_log('AQM Sitemaps: Latest version from GitHub: ' . $update_data['version']);
+            }
         }
         
         return $transient;
@@ -117,45 +145,68 @@ class AQM_GitHub_Updater {
     /**
      * Get update data from GitHub
      * 
+     * @param bool $force_check Whether to force a fresh check ignoring cache
      * @return array|false Update data or false on failure
      */
-    private function get_github_update_data() {
+    private function get_github_update_data($force_check = false) {
         // Force clear cache when manually checking for updates
-        if (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] === '1') {
+        if ($force_check || (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] === '1')) {
             delete_transient($this->transient_name);
+            error_log('AQM Sitemaps: Forcing fresh update check from GitHub');
         } else {
             // Check cache first
             $cached_data = get_transient($this->transient_name);
             if ($cached_data !== false) {
+                error_log('AQM Sitemaps: Using cached update data');
                 return $cached_data;
             }
         }
         
         // Get latest release from GitHub API
         $api_url = 'https://api.github.com/repos/' . $this->github_username . '/' . $this->github_repository . '/releases/latest';
+        error_log('AQM Sitemaps: Checking GitHub API: ' . $api_url);
+        
         $response = wp_remote_get($api_url, array(
             'headers' => array(
                 'Accept' => 'application/vnd.github.v3+json',
                 'User-Agent' => 'WordPress/' . get_bloginfo('version')
             ),
-            'timeout' => 10
+            'timeout' => 15,
+            'sslverify' => false // Sometimes needed for servers with SSL issues
         ));
         
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+        if (is_wp_error($response)) {
+            error_log('AQM Sitemaps: GitHub API Error: ' . $response->get_error_message());
+            return false;
+        } else if (wp_remote_retrieve_response_code($response) !== 200) {
+            error_log('AQM Sitemaps: GitHub API returned status code: ' . wp_remote_retrieve_response_code($response));
             return false;
         }
+        
+        error_log('AQM Sitemaps: GitHub API request successful');
         
         $release_data = json_decode(wp_remote_retrieve_body($response), true);
         
-        if (empty($release_data) || !isset($release_data['tag_name'])) {
+        if (empty($release_data)) {
+            error_log('AQM Sitemaps: Empty release data from GitHub');
             return false;
         }
         
+        if (!isset($release_data['tag_name'])) {
+            error_log('AQM Sitemaps: No tag_name found in GitHub release data');
+            error_log('AQM Sitemaps: Release data keys: ' . implode(', ', array_keys($release_data)));
+            return false;
+        }
+        
+        error_log('AQM Sitemaps: Found GitHub release with tag: ' . $release_data['tag_name']);
+        
         // Format version number (remove 'v' prefix if present)
         $version = ltrim($release_data['tag_name'], 'v');
+        error_log('AQM Sitemaps: Formatted version: ' . $version);
         
         // Direct download URL for the repository archive
         $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
+        error_log('AQM Sitemaps: Download URL: ' . $download_url);
         
         $update_data = array(
             'version' => $version,
@@ -305,15 +356,44 @@ class AQM_GitHub_Updater {
             wp_die('Security check failed');
         }
         
-        // Clear the cached update data
+        // Clear all update-related transients
         delete_transient($this->transient_name);
+        delete_site_transient('update_plugins');
+        delete_site_transient('update_themes');
+        delete_site_transient('update_core');
         
         // Force WordPress to check for updates
         wp_clean_plugins_cache(true);
         
+        // Force refresh of plugin update information
+        $this->force_update_check();
+        
         // Redirect back to the plugins page
         wp_redirect(admin_url('plugins.php?aqm_checked=1'));
         exit;
+    }
+    
+    /**
+     * Force an immediate update check
+     */
+    private function force_update_check() {
+        $current = get_site_transient('update_plugins');
+        if (!is_object($current)) {
+            $current = new stdClass();
+        }
+        
+        if (!isset($current->checked)) {
+            $current->checked = array();
+        }
+        
+        // Set the last_checked to 0 to force a fresh check
+        $current->last_checked = 0;
+        
+        // Make sure our plugin is in the checked list
+        $current->checked[$this->plugin_basename] = $this->current_version;
+        
+        // Save the modified transient
+        set_site_transient('update_plugins', $current);
     }
     
     /**
