@@ -51,6 +51,12 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.9
+- Fixed shortcode generator buttons not functioning correctly
+- Improved JavaScript event handling for dynamically added elements
+- Added enhanced debugging and logging for troubleshooting
+- Fixed event delegation for edit, copy, and delete buttons
+
 ### 1.0.8
 - Testing GitHub update mechanism
 - Minor performance improvements

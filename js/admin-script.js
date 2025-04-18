@@ -100,6 +100,7 @@ jQuery(document).ready(function($) {
     // Generate and save shortcode
     $('#aqm-sitemap-form').on('submit', function(e) {
         e.preventDefault();
+        console.log('Form submitted');
         
         const shortcodeName = $('#shortcode_name').val().trim();
         const selectedFolders = [];
@@ -269,8 +270,8 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Edit shortcode
-    $('.edit-shortcode').on('click', function() {
+    // Edit shortcode - use document delegation to handle dynamically added elements
+    $(document).on('click', '.edit-shortcode', function() {
         console.log('Edit button clicked');
         
         const $button = $(this);
@@ -496,13 +497,14 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Delete shortcode
-    $('.delete-shortcode').on('click', function() {
+    // Delete shortcode - use document delegation to handle dynamically added elements
+    $(document).on('click', '.delete-shortcode', function() {
         if (!confirm('Are you sure you want to delete this shortcode?')) {
             return;
         }
 
         const name = $(this).data('name');
+        console.log('Deleting shortcode:', name);
 
         $.ajax({
             url: aqmSitemaps.ajaxurl,
@@ -522,11 +524,12 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Copy shortcode
-    $('.copy-shortcode').on('click', function() {
+    // Copy shortcode - use document delegation to handle dynamically added elements
+    $(document).on('click', '.copy-shortcode', function() {
         const shortcode = $(this).data('shortcode');
         const $button = $(this);
         const originalText = $button.text();
+        console.log('Copying shortcode:', shortcode);
 
         // Create a temporary textarea
         const $temp = $('<textarea>');
