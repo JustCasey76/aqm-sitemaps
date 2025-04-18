@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.4
+- Added back "Check for Updates" link on plugins page
+- Improved update success notification with version information
+- Fixed update check success notice display
+
 ### 1.0.3
 - Fixed GitHub update process to properly handle directory structure
 - Implemented improved update mechanism using GitHub's zipball URL
