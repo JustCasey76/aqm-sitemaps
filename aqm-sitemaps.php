@@ -1,36 +1,49 @@
 <?php
 /**
- * Plugin Name: AQM Enhanced Sitemap
+ * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 2.1.5
+ * Version: 1.0.0
  * Author: AQ Marketing
- * Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
- * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemap-enhanced
- * Primary Branch: master
+ * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
+ * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
+ * Primary Branch: main
  * Requires at least: 5.2
  * Requires PHP: 7.2
  */
 
 // Prevent direct access
-// IMPORTANT: For GitHub Updater compatibility, always release a zip with the plugin in a folder named 'aqm-sitemap-enhanced', with this file at the root of that folder.
-// Do not change the folder or main file name between releases.
 if (!defined('ABSPATH')) {
     exit;
 }
 
 // Version for cache busting
-define('AQM_SITEMAP_VERSION', '2.1.5');
+define('AQM_SITEMAPS_VERSION', '1.0.0');
 
 // Set up text domain for translations
-function aqm_sitemap_load_textdomain() {
-    load_plugin_textdomain('aqm-sitemap-enhanced', false, dirname(plugin_basename(__FILE__)) . '/languages');
+function aqm_sitemaps_load_textdomain() {
+    load_plugin_textdomain('aqm-sitemaps', false, dirname(plugin_basename(__FILE__)) . '/languages');
 }
-add_action('init', 'aqm_sitemap_load_textdomain');
+add_action('init', 'aqm_sitemaps_load_textdomain');
+
+// Include the GitHub Updater class
+require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
+
+// Initialize the GitHub Updater
+function aqm_sitemaps_init_github_updater() {
+    if (class_exists('AQM_GitHub_Updater')) {
+        new AQM_GitHub_Updater(
+            __FILE__,
+            'JustCasey76',
+            'aqm-sitemaps'
+        );
+    }
+}
+add_action('admin_init', 'aqm_sitemaps_init_github_updater');
 
 // Ensure plugin stays activated after updates
 function aqm_ensure_plugin_activated() {
     // Check if plugin should be active but isn't
-    if (get_option('aqm_sitemap_was_active', false)) {
+    if (get_option('aqm_sitemaps_was_active', false)) {
         $plugin_basename = plugin_basename(__FILE__);
         
         if (!function_exists('is_plugin_active') || !function_exists('activate_plugin')) {
@@ -39,34 +52,20 @@ function aqm_ensure_plugin_activated() {
         
         // If plugin is not active, reactivate it
         if (!is_plugin_active($plugin_basename)) {
-            error_log('AQM Sitemap: Plugin was previously active but is now inactive. Reactivating...');
+            error_log('AQM Sitemaps: Plugin was previously active but is now inactive. Reactivating...');
             activate_plugin($plugin_basename);
-            error_log('AQM Sitemap: Plugin reactivation completed');
+            error_log('AQM Sitemaps: Plugin reactivation completed');
         }
     }
 }
 add_action('admin_init', 'aqm_ensure_plugin_activated');
 
-// Include the GitHub Updater
-require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
 
-// Setup GitHub Updater - initialize after plugins are loaded
-function aqm_sitemap_init_github_updater() {
-    // Only setup if class exists
-    if (class_exists('AQM_Sitemap_GitHub_Updater')) {
-        new AQM_Sitemap_GitHub_Updater(
-            __FILE__,
-            'JustCasey76',
-            'aqm-sitemap-enhanced'
-        );
-    }
-}
-add_action('plugins_loaded', 'aqm_sitemap_init_github_updater');
 
 // Update existing shortcodes to include new parameters
 function aqm_update_shortcodes_with_margin() {
     // Get saved shortcodes
-    $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
+    $saved_shortcodes = get_option('aqm_sitemaps_shortcodes', array());
     $updated = false;
     
     if (!empty($saved_shortcodes) && is_array($saved_shortcodes)) {
@@ -89,7 +88,7 @@ function aqm_update_shortcodes_with_margin() {
         
         // Save updated shortcodes if changes were made
         if ($updated) {
-            update_option('aqm_sitemap_shortcodes', $saved_shortcodes);
+            update_option('aqm_sitemaps_shortcodes', $saved_shortcodes);
         }
     }
 }
@@ -100,69 +99,69 @@ add_action('admin_init', 'aqm_update_shortcodes_with_margin');
 // and not automatically add parameters to existing shortcodes
 
 // Add menu item
-function aqm_sitemap_menu() {
+function aqm_sitemaps_menu() {
     // Use edit_posts capability which is available to editors and administrators
     // This is less restrictive than manage_options (admin only)
     add_menu_page(
-        'AQM Sitemap',
-        'AQM Sitemap',
+        'AQM Sitemaps',
+        'AQM Sitemaps',
         'edit_posts',
-        'aqm-sitemap',
-        'aqm_sitemap_page',
+        'aqm-sitemaps',
+        'aqm_sitemaps_page',
         'dashicons-layout'
     );
 }
-add_action('admin_menu', 'aqm_sitemap_menu');
+add_action('admin_menu', 'aqm_sitemaps_menu');
 
 // Register scripts and styles
-function aqm_sitemap_admin_scripts($hook) {
+function aqm_sitemaps_admin_scripts($hook) {
     // Only load on our plugin page
-    if ('toplevel_page_aqm-sitemap' !== $hook) {
+    if ('toplevel_page_aqm-sitemaps' !== $hook) {
         return;
     }
 
     wp_enqueue_script('jquery');
     // Enqueue our script
     wp_enqueue_script(
-        'aqm-sitemap-admin-script', 
+        'aqm-sitemaps-admin-script', 
         plugins_url('js/admin-script.js', __FILE__), 
         array('jquery'), 
-        AQM_SITEMAP_VERSION, 
+        AQM_SITEMAPS_VERSION, 
         true
     );
     
-    wp_localize_script('aqm-sitemap-admin-script', 'aqmSitemap', array(
+    wp_localize_script('aqm-sitemaps-admin-script', 'aqmSitemaps', array(
         'ajaxurl' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('aqm_sitemap_nonce')
+        'nonce' => wp_create_nonce('aqm_sitemaps_nonce')
     ));
 }
-add_action('admin_enqueue_scripts', 'aqm_sitemap_admin_scripts');
+add_action('admin_enqueue_scripts', 'aqm_sitemaps_admin_scripts');
 
 // Register and enqueue frontend styles
-function aqm_sitemap_enqueue_styles() {
+function aqm_sitemaps_enqueue_styles() {
     wp_register_style(
-        'aqm-sitemap-frontend',
+        'aqm-sitemaps-frontend',
         plugins_url('css/frontend-style.css', __FILE__),
         array(),
-        AQM_SITEMAP_VERSION
+        AQM_SITEMAPS_VERSION
     );
 }
-add_action('wp_enqueue_scripts', 'aqm_sitemap_enqueue_styles');
+add_action('wp_enqueue_scripts', 'aqm_sitemaps_enqueue_styles');
 
 // Register and enqueue admin styles
-function aqm_sitemap_admin_styles($hook) {
-    if ('toplevel_page_aqm-sitemap' !== $hook) {
+function aqm_sitemaps_admin_styles($hook) {
+    if ('toplevel_page_aqm-sitemaps' !== $hook) {
         return;
     }
     
     wp_enqueue_style(
-        'aqm-sitemap-admin',
+        'aqm-sitemaps-admin',
         plugins_url('css/admin-style.css', __FILE__),
         array(),
-        AQM_SITEMAP_VERSION
+        AQM_SITEMAPS_VERSION
     );
 }
-add_action('admin_enqueue_scripts', 'aqm_sitemap_admin_styles');
+add_action('admin_enqueue_scripts', 'aqm_sitemaps_admin_styles');
 
 // Migrate shortcodes from old option names
 function migrate_old_shortcodes() {
@@ -174,130 +173,40 @@ function migrate_old_shortcodes() {
 
     if (!empty($old_shortcodes)) {
         // Save to new option name
-        update_option('aqm_sitemap_shortcodes', $old_shortcodes);
+        update_option('aqm_sitemaps_shortcodes', $old_shortcodes);
         
         // Clean up old options
         delete_option('aqm_saved_shortcodes');
         delete_option('aqm_saved_sitemap_shortcodes');
         
-        error_log('AQM Sitemap: Migrated ' . count($old_shortcodes) . ' shortcodes to new option name');
+        error_log('AQM Sitemaps: Migrated ' . count($old_shortcodes) . ' shortcodes to new option name');
     }
 }
 
 // Add plugin options on activation
-function aqm_sitemap_activate() {
+function aqm_sitemaps_activate() {
     // Set default options if they don't exist
-    if (get_option('aqm_sitemap_show_debug') === false) {
-        add_option('aqm_sitemap_show_debug', 1); // Default to showing debug info
+
+    if (get_option('aqm_sitemaps_show_debug') === false) {
+        add_option('aqm_sitemaps_show_debug', 1); // Default to showing debug info
     }
     
     // Set the last update check time
-    if (get_option('aqm_sitemap_last_update_check') === false) {
-        add_option('aqm_sitemap_last_update_check', time());
+    if (get_option('aqm_sitemaps_last_update_check') === false) {
+        add_option('aqm_sitemaps_last_update_check', time());
+
     }
 }
-register_activation_hook(__FILE__, 'aqm_sitemap_activate');
-
-// Force WordPress to check for updates
-function aqm_force_update_check() {
-    try {
-        if (!current_user_can('update_plugins')) {
-            wp_send_json_error('Permission denied');
-        }
-        // Verify nonce
-        if (!check_ajax_referer('aqm_sitemap_nonce', 'nonce', false)) {
-            wp_send_json_error('Invalid security token');
-        }
-
-        // Delete the transient that stores update info
-        if (!delete_site_transient('update_plugins')) {
-            error_log('AQM Sitemap: Failed to delete update_plugins transient.');
-        }
-
-        // Update the last check time
-        if (!update_option('aqm_sitemap_last_update_check', time())) {
-            error_log('AQM Sitemap: Failed to update last_update_check option.');
-        }
-
-        // Force WordPress to check for updates
-        if (!function_exists('wp_update_plugins')) {
-            require_once ABSPATH . 'wp-includes/update.php';
-        }
-        wp_update_plugins();
-
-        // Get current plugin data
-        if (!function_exists('get_plugin_data')) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
-        $plugin_data = get_plugin_data(__FILE__);
-        $current_version = isset($plugin_data['Version']) ? $plugin_data['Version'] : 'unknown';
-
-        wp_send_json_success(array(
-            'message' => 'Update check complete',
-            'last_check' => human_time_diff(time(), time()) . ' ago',
-            'current_version' => $current_version
-        ));
-    } catch (Throwable $e) {
-        error_log('AQM Sitemap: AJAX update check fatal error: ' . $e->getMessage());
-        wp_send_json_error('Fatal error: ' . $e->getMessage());
-    }
-}
-add_action('wp_ajax_aqm_force_update_check', 'aqm_force_update_check');
+register_activation_hook(__FILE__, 'aqm_sitemaps_activate');
 
 // Main admin page
-function aqm_sitemap_page() {
+function aqm_sitemaps_page() {
     // Changed from manage_options to edit_posts to match menu registration
     if (!current_user_can('edit_posts')) {
         return;
     }
     
-    // Handle direct update check (fallback for AJAX issues)
-    if (isset($_GET['force-update']) && current_user_can('update_plugins')) {
-        try {
-            // Verify nonce - use a softer verification that won't die on failure
-            $nonce_valid = false;
-            if (isset($_REQUEST['_wpnonce'])) {
-                $nonce_valid = wp_verify_nonce($_REQUEST['_wpnonce'], 'aqm_sitemap_nonce');
-            }
-            
-            if (!$nonce_valid) {
-                error_log('AQM Sitemap: Non-AJAX update check failed - invalid nonce');
-                // Don't stop execution, just show an admin notice
-                add_action('admin_notices', function() {
-                    echo '<div class="notice notice-error"><p>Security verification failed. Please try again.</p></div>';
-                });
-            } else {
-                error_log('AQM Sitemap: Running non-AJAX update check (fallback method)');
-                
-                // Delete the transient that stores update info
-                if (!delete_site_transient('update_plugins')) {
-                    error_log('AQM Sitemap: Failed to delete update_plugins transient in fallback method');
-                }
-                
-                // Update the last check time
-                update_option('aqm_sitemap_last_update_check', time());
-                
-                // Force WordPress to check for updates
-                if (!function_exists('wp_update_plugins')) {
-                    require_once ABSPATH . 'wp-includes/update.php';
-                }
-                wp_update_plugins();
-                
-                // Show success message
-                add_action('admin_notices', function() {
-                    echo '<div class="notice notice-success"><p>Update check completed successfully.</p></div>';
-                });
-                
-                error_log('AQM Sitemap: Non-AJAX update check completed successfully');
-            }
-        } catch (Exception $e) {
-            error_log('AQM Sitemap: Error in non-AJAX update check: ' . $e->getMessage());
-            // Show error message
-            add_action('admin_notices', function() use ($e) {
-                echo '<div class="notice notice-error"><p>Error checking for updates: ' . esc_html($e->getMessage()) . '</p></div>';
-            });
-        }
-    }
+
 
     // Migrate old shortcodes if needed
     migrate_old_shortcodes();
@@ -312,21 +221,19 @@ function aqm_sitemap_page() {
     $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
     
     // Debug log
-    error_log('AQM Sitemap: Number of saved shortcodes: ' . count($saved_shortcodes));
+    error_log('AQM Sitemaps: Number of saved shortcodes: ' . count($saved_shortcodes));
     
     // Handle debug toggle if form submitted
     if (isset($_POST['aqm_debug_toggle_submit'])) {
         $show_debug = isset($_POST['aqm_show_debug']) ? 1 : 0;
-        update_option('aqm_sitemap_show_debug', $show_debug);
+        update_option('aqm_sitemaps_show_debug', $show_debug);
         echo '<div class="notice notice-success is-dismissible"><p>Debug settings updated successfully.</p></div>';
     }
     
     // Get current debug setting
-    $show_debug = get_option('aqm_sitemap_show_debug', 1);
+    $show_debug = get_option('aqm_sitemaps_show_debug', 1);
     
-    // Get last update check time
-    $last_update_check = get_option('aqm_sitemap_last_update_check', 0);
-    $last_check_text = $last_update_check ? human_time_diff($last_update_check, time()) . ' ago' : 'Never';
+
     
     // Get current plugin version
     $plugin_data = get_plugin_data(__FILE__);
@@ -334,7 +241,7 @@ function aqm_sitemap_page() {
     ?>
     <div class="wrap">
         <div class="aqm-header">
-            <h1>AQM Sitemap Generator</h1>
+            <h1>AQM Sitemaps Generator</h1>
             <div class="theme-toggle">
                 <label class="switch">
                     <input type="checkbox" id="theme-switch">
@@ -360,18 +267,7 @@ function aqm_sitemap_page() {
                 </p>
             </form>
             
-            <!-- Update Check Section -->
-            <div class="update-check-section">
-                <h3>Plugin Updates</h3>
-                <p>Last update check: <span id="last-update-check"><?php echo esc_html($last_check_text); ?></span></p>
-                <p>Current version: <strong><?php echo esc_html($current_version); ?></strong></p>
-                <button id="check-for-updates" class="button button-secondary">Check for Updates</button>
-                <span id="update-check-status" style="margin-left: 10px; display: none;"></span>
-                
-                <div class="update-instructions">
-                    <p class="description">After checking for updates, visit the <a href="<?php echo admin_url('plugins.php'); ?>">Plugins page</a> to see if an update is available.</p>
-                </div>
-            </div>
+
         </div>
         
         <div class="aqm-main-content">
@@ -543,7 +439,7 @@ function aqm_save_shortcode() {
     ini_set('display_errors', 1);
     
     // Log the raw POST data
-    error_log('AQM Sitemap Raw POST: ' . print_r($_POST, true));
+    error_log('AQM Sitemaps Raw POST: ' . print_r($_POST, true));
     
     // Debug the icon and icon_color parameters
     if (isset($_POST['debug_icon'])) {
@@ -556,26 +452,26 @@ function aqm_save_shortcode() {
 
     // Check if this is an AJAX request
     if (!wp_doing_ajax()) {
-        error_log('AQM Sitemap: Not an AJAX request');
+        error_log('AQM Sitemaps: Not an AJAX request');
         die('Invalid request method');
     }
 
     // Verify nonce first
     if (!isset($_POST['nonce'])) {
-        error_log('AQM Sitemap: Nonce is missing');
+        error_log('AQM Sitemaps: Nonce is missing');
         wp_send_json_error('Security token is missing');
         wp_die();
     }
 
-    if (!wp_verify_nonce($_POST['nonce'], 'aqm_sitemap_nonce')) {
-        error_log('AQM Sitemap: Invalid nonce');
+    if (!wp_verify_nonce($_POST['nonce'], 'aqm_sitemaps_nonce')) {
+        error_log('AQM Sitemaps: Invalid nonce');
         wp_send_json_error('Invalid security token');
         wp_die();
     }
 
     // Check user capabilities
     if (!current_user_can('manage_options')) {
-        error_log('AQM Sitemap: Insufficient permissions');
+        error_log('AQM Sitemaps: Insufficient permissions');
         wp_send_json_error('You do not have permission to perform this action');
         wp_die();
     }
@@ -600,11 +496,11 @@ function aqm_save_shortcode() {
     }
     
     // Log the icon and icon_color values
-    error_log('AQM Sitemap: Icon value: ' . $icon);
-    error_log('AQM Sitemap: Icon color value: ' . $icon_color);
+    error_log('AQM Sitemaps: Icon value: ' . $icon);
+    error_log('AQM Sitemaps: Icon color value: ' . $icon_color);
     
     // Log the sanitized data
-    error_log('AQM Sitemap: Sanitized data - ' . print_r([
+    error_log('AQM Sitemaps: Sanitized data - ' . print_r([
         'name' => $name,
         'shortcode' => $shortcode,
         'edit_mode' => $edit_mode,
@@ -675,20 +571,20 @@ function aqm_save_shortcode() {
         $saved_shortcodes[$name] = $shortcode;
 
         // Update option with error checking
-        $update_result = update_option('aqm_sitemap_shortcodes', $saved_shortcodes);
+        $update_result = update_option('aqm_sitemaps_shortcodes', $saved_shortcodes);
         
         if ($update_result) {
-            error_log('AQM Sitemap: Shortcode saved successfully - ' . $name);
+            error_log('AQM Sitemaps: Shortcode saved successfully - ' . $name);
             wp_send_json_success(array(
                 'message' => 'Shortcode saved successfully',
                 'name' => $name
             ));
         } else {
-            error_log('AQM Sitemap: Failed to update option');
+            error_log('AQM Sitemaps: Failed to update option');
             wp_send_json_error('Failed to save shortcode');
         }
     } catch (Exception $e) {
-        error_log('AQM Sitemap Exception: ' . $e->getMessage());
+        error_log('AQM Sitemaps Exception: ' . $e->getMessage());
         wp_send_json_error('An unexpected error occurred: ' . $e->getMessage());
     }
 
@@ -697,15 +593,15 @@ function aqm_save_shortcode() {
 }
 
 // Remove any existing action to prevent duplicates
-remove_action('wp_ajax_save_sitemap_shortcode', 'aqm_save_shortcode');
-remove_action('wp_ajax_nopriv_save_sitemap_shortcode', 'aqm_save_shortcode');
+remove_action('wp_ajax_save_sitemaps_shortcode', 'aqm_save_shortcode');
+remove_action('wp_ajax_nopriv_save_sitemaps_shortcode', 'aqm_save_shortcode');
 
 // Add our action
-add_action('wp_ajax_save_sitemap_shortcode', 'aqm_save_shortcode');
+add_action('wp_ajax_aqm_sitemaps_save_shortcode', 'aqm_save_shortcode');
 
 // Delete shortcode
 function aqm_delete_shortcode() {
-    if (!check_ajax_referer('aqm_sitemap_nonce', 'nonce', false)) {
+    if (!check_ajax_referer('aqm_sitemaps_nonce', 'nonce', false)) {
         wp_send_json_error('Invalid nonce');
     }
 
@@ -715,10 +611,10 @@ function aqm_delete_shortcode() {
 
     $name = sanitize_text_field($_POST['name']);
     
-    $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
+    $saved_shortcodes = get_option('aqm_sitemaps_shortcodes', array());
     unset($saved_shortcodes[$name]);
     
-    update_option('aqm_sitemap_shortcodes', $saved_shortcodes);
+    update_option('aqm_sitemaps_shortcodes', $saved_shortcodes);
     
     wp_send_json_success();
 }
@@ -730,7 +626,7 @@ function aqm_admin_debug_notice() {
     if (!is_admin()) return;
     
     echo '<div class="notice notice-info is-dismissible">
-        <p><strong>AQM Sitemap Debug:</strong> Enhanced debugging is enabled for all logged-in users. Make sure you are logged in when viewing pages with the sitemap shortcode to see debug information.</p>
+        <p><strong>AQM Sitemaps Debug:</strong> Enhanced debugging is enabled for all logged-in users. Make sure you are logged in when viewing pages with the sitemap shortcode to see debug information.</p>
     </div>';
 }
 add_action('admin_notices', 'aqm_admin_debug_notice');
@@ -740,15 +636,15 @@ function display_enhanced_page_sitemap($atts) {
     global $wpdb;
     
     // Get debug setting from admin options (default to off)
-    $show_debug = (bool) get_option('aqm_sitemap_show_debug', 0);
+    $show_debug = (bool) get_option('aqm_sitemaps_show_debug', 0);
     
     // Only show debug info to admins when the option is enabled
     $show_debug = $show_debug && current_user_can('manage_options');
     
     // Ensure our styles are loaded with forced cache busting
-    $css_version = AQM_SITEMAP_VERSION . '.' . time(); // Ultra-aggressive cache busting
+    $css_version = AQM_SITEMAPS_VERSION . '.' . time(); // Ultra-aggressive cache busting
     wp_enqueue_style(
-        'aqm-sitemap-frontend',
+        'aqm-sitemaps-frontend',
         plugins_url('css/frontend-style.css', __FILE__),
         array(),
         $css_version

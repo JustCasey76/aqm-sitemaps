@@ -1,14 +1,14 @@
 jQuery(document).ready(function($) {
-    console.log('AQM Sitemap script loaded'); // Debug log
+    console.log('AQM Sitemaps script loaded'); // Debug log
 
     // Function to reset form to create mode
     function resetToCreateMode() {
         $('#edit_mode').val('0');
         $('#original_name').val('');
         $('#shortcode_name').val('');
-        $('.aqm-sitemap-generator h2').text('Create New Sitemap');
+        $('.aqm-sitemaps-generator h2').text('Create New Sitemap');
         $('#submit_button').text('Generate Shortcode');
-        $('#aqm-sitemap-form')[0].reset();
+        $('#aqm-sitemaps-form')[0].reset();
     }
 
     // Auto-fill shortcode name when folder checkboxes change
@@ -232,12 +232,12 @@ jQuery(document).ready(function($) {
         
         // Add form field values to the data object for debugging
         const formData = {
-            action: 'save_sitemap_shortcode',
+            action: 'aqm_sitemaps_save_shortcode',
             name: shortcodeName,
             shortcode: shortcode,
             edit_mode: editMode ? '1' : '0',
             original_name: originalName,
-            nonce: aqmSitemap.nonce,
+            nonce: aqmSitemaps.nonce,
             // Add these for debugging
             debug_icon: icon,
             debug_icon_color: iconColor
@@ -246,7 +246,7 @@ jQuery(document).ready(function($) {
         console.log('Form data being sent:', formData);
         
         $.ajax({
-            url: aqmSitemap.ajaxurl,
+            url: aqmSitemaps.ajaxurl,
             type: 'POST',
             data: formData,
             success: function(response) {
@@ -505,11 +505,11 @@ jQuery(document).ready(function($) {
         const name = $(this).data('name');
 
         $.ajax({
-            url: aqmSitemap.ajaxurl,
+            url: aqmSitemaps.ajaxurl,
             type: 'POST',
             data: {
                 action: 'aqm_delete_shortcode',
-                nonce: aqmSitemap.nonce,
+                nonce: aqmSitemaps.nonce,
                 name: name
             },
             success: function(response) {
@@ -572,40 +572,6 @@ jQuery(document).ready(function($) {
         } else {
             body.attr('data-theme', 'light');
             localStorage.setItem('aqm-theme', 'light');
-        }
-    });
-    
-    // Convert the Check for Updates button to a direct link
-    $(document).ready(function() {
-        // Find the button
-        const $button = $('#check-for-updates');
-        
-        if ($button.length) {
-            // Get the button's parent element
-            const $parent = $button.parent();
-            
-            // Create a direct link to replace the button
-            const linkHtml = '<a href="' + window.location.pathname + 
-                           '?page=aqm-sitemap&force-update=1&_wpnonce=' + 
-                           aqmSitemap.nonce + '" ' +
-                           'class="button button-primary" id="check-for-updates-link">' +
-                           'Check for Updates</a>';
-            
-            // Replace the button with the link
-            $button.replaceWith(linkHtml);
-            
-            console.log('Replaced update button with direct link');
-        }
-        
-        // Show success message if we're on a page with force-update parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('force-update')) {
-            const $status = $('#update-check-status');
-            $status.removeClass('error').addClass('success')
-                   .html('Update check complete. <a href="' + 
-                         window.location.origin + '/wp-admin/plugins.php' + 
-                         '">Go to Plugins page</a> to see if updates are available.')
-                   .show();
         }
     });
 });
