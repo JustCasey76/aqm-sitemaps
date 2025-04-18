@@ -45,6 +45,7 @@ class AQM_GitHub_Updater {
         // Add filters for plugin update checks
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_for_updates'));
         add_filter('plugins_api', array($this, 'plugin_info'), 10, 3);
+        add_filter('plugin_action_links_' . $this->plugin_basename, array($this, 'add_action_links'));
         
         // Add admin notice for updates
         add_action('admin_notices', array($this, 'show_update_notice'));
@@ -450,5 +451,17 @@ class AQM_GitHub_Updater {
         }
         
         echo '</div>';
+    }
+    
+    /**
+     * Add "Check for Updates" link to plugin actions
+     * 
+     * @param array $links Existing action links
+     * @return array Modified action links
+     */
+    public function add_action_links($links) {
+        $check_update_link = '<a href="' . wp_nonce_url(admin_url('plugins.php?aqm_check_for_updates=1&plugin=' . $this->plugin_basename), 'aqm-check-update') . '">Check for Updates</a>';
+        array_unshift($links, $check_update_link);
+        return $links;
     }
 }
