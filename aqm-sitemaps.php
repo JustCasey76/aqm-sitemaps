@@ -223,15 +223,8 @@ function aqm_sitemaps_page() {
     // Debug log
     error_log('AQM Sitemaps: Number of saved shortcodes: ' . count($saved_shortcodes));
     
-    // Handle debug toggle if form submitted
-    if (isset($_POST['aqm_debug_toggle_submit'])) {
-        $show_debug = isset($_POST['aqm_show_debug']) ? 1 : 0;
-        update_option('aqm_sitemaps_show_debug', $show_debug);
-        echo '<div class="notice notice-success is-dismissible"><p>Debug settings updated successfully.</p></div>';
-    }
-    
-    // Get current debug setting
-    $show_debug = get_option('aqm_sitemaps_show_debug', 1);
+    // Debug setting is now controlled through code only
+    $show_debug = false;
     
 
     
@@ -251,24 +244,7 @@ function aqm_sitemaps_page() {
             </div>
         </div>
         
-        <!-- Admin Debug Toggle Section -->
-        <div class="aqm-admin-settings">
-            <h2>Admin Settings</h2>
-            <form method="post" action="">
-                <div class="form-group">
-                    <label for="aqm_show_debug">
-                        <input type="checkbox" id="aqm_show_debug" name="aqm_show_debug" value="1" <?php checked(1, $show_debug); ?>>
-                        Show Debug Information in Sitemap Shortcodes
-                    </label>
-                    <p class="description">When enabled, sitemap shortcodes will display debug information (folder slug, excluded IDs, etc.) to admin users.</p>
-                </div>
-                <p>
-                    <input type="submit" name="aqm_debug_toggle_submit" class="button button-primary" value="Save Settings">
-                </p>
-            </form>
-            
 
-        </div>
         
         <div class="aqm-main-content">
             <div class="aqm-left-column">
@@ -620,26 +596,14 @@ function aqm_delete_shortcode() {
 }
 add_action('wp_ajax_aqm_delete_shortcode', 'aqm_delete_shortcode');
 
-// Add admin notice to ensure debug is showing
-function aqm_admin_debug_notice() {
-    // Only show on admin pages
-    if (!is_admin()) return;
-    
-    echo '<div class="notice notice-info is-dismissible">
-        <p><strong>AQM Sitemaps Debug:</strong> Enhanced debugging is enabled for all logged-in users. Make sure you are logged in when viewing pages with the sitemap shortcode to see debug information.</p>
-    </div>';
-}
-add_action('admin_notices', 'aqm_admin_debug_notice');
+
 
 // The actual shortcode function
 function display_enhanced_page_sitemap($atts) {
     global $wpdb;
     
-    // Get debug setting from admin options (default to off)
-    $show_debug = (bool) get_option('aqm_sitemaps_show_debug', 0);
-    
-    // Only show debug info to admins when the option is enabled
-    $show_debug = $show_debug && current_user_can('manage_options');
+    // Debug functionality has been removed
+    $show_debug = false;
     
     // Ensure our styles are loaded with forced cache busting
     $css_version = AQM_SITEMAPS_VERSION . '.' . time(); // Ultra-aggressive cache busting
