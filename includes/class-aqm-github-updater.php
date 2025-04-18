@@ -135,20 +135,18 @@ class AQM_GitHub_Updater {
         // Format version number (remove 'v' prefix if present)
         $version = ltrim($release_data['tag_name'], 'v');
         
-        // Get download URL
-        $download_url = false;
-        if (isset($release_data['assets']) && is_array($release_data['assets'])) {
+        // Always use the zipball URL for consistent updates
+        // This ensures we can update even if no specific release asset is uploaded
+        $download_url = isset($release_data['zipball_url']) ? $release_data['zipball_url'] : false;
+        
+        // If zipball URL is not available, try to use a specific asset as fallback
+        if (!$download_url && isset($release_data['assets']) && is_array($release_data['assets'])) {
             foreach ($release_data['assets'] as $asset) {
                 if (isset($asset['browser_download_url']) && strpos($asset['browser_download_url'], '.zip') !== false) {
                     $download_url = $asset['browser_download_url'];
                     break;
                 }
             }
-        }
-        
-        // If no asset found, use the source code zip
-        if (!$download_url && isset($release_data['zipball_url'])) {
-            $download_url = $release_data['zipball_url'];
         }
         
         $update_data = array(
@@ -218,22 +216,25 @@ class AQM_GitHub_Updater {
     public function fix_directory_name($source, $remote_source, $upgrader, $hook_extra) {
         global $wp_filesystem;
         
-        // Check if we're updating this plugin
+        // Only apply to this plugin
         if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin_basename) {
             return $source;
         }
         
-        // Get the expected directory name
-        $expected_directory = dirname($source) . '/' . dirname($this->plugin_basename);
+        // Get the correct target directory name
+        $correct_directory = dirname($source) . '/' . dirname($this->plugin_basename);
         
-        // If the source and expected directory are the same, no need to rename
-        if ($source === $expected_directory) {
-            return $source;
-        }
-        
-        // Rename the source to the expected directory name
-        if ($wp_filesystem->move($source, $expected_directory)) {
-            return $expected_directory;
+        // Check if we need to rename the directory
+        if ($source !== $correct_directory) {
+            // If the target directory already exists, remove it first
+            if ($wp_filesystem->exists($correct_directory)) {
+                $wp_filesystem->delete($correct_directory, true);
+            }
+            
+            // Rename the directory
+            if ($wp_filesystem->move($source, $correct_directory)) {
+                return $correct_directory;
+            }
         }
         
         return $source;
@@ -250,10 +251,16 @@ class AQM_GitHub_Updater {
         $update_data = $this->get_github_update_data();
         
         if ($update_data && version_compare($update_data['version'], $this->current_version, '>')) {
+            // Get the update URL
+            $update_url = wp_nonce_url(
+                self_admin_url('update.php?action=upgrade-plugin&plugin=' . urlencode($this->plugin_basename)),
+                'upgrade-plugin_' . $this->plugin_basename
+            );
+            
             echo '<div class="notice notice-warning">';
             echo '<p><strong>AQM Sitemaps Update Available!</strong></p>';
             echo '<p>Version ' . esc_html($update_data['version']) . ' is available. You are currently using version ' . esc_html($this->current_version) . '.</p>';
-            echo '<p><a href="' . esc_url(admin_url('plugins.php')) . '">Go to Plugins page</a> to update.</p>';
+            echo '<p><a href="' . esc_url($update_url) . '" class="button button-primary">Update Now</a></p>';
             echo '</div>';
         }
     }
