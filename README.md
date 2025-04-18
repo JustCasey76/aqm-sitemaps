@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.3
+- Fixed GitHub update process to properly handle directory structure
+- Implemented improved update mechanism using GitHub's zipball URL
+- Added detailed logging for troubleshooting update issues
+
 ### 1.0.2
 - Improved GitHub updater functionality
 - Fixed update process to work seamlessly with WordPress
