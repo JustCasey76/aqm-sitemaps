@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.0.9
+ * Version: 1.0.10
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '1.0.9');
+define('AQM_SITEMAPS_VERSION', '1.0.10');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -235,7 +235,7 @@ function aqm_sitemaps_page() {
     ));
 
     // Get saved shortcodes
-    $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
+    $saved_shortcodes = get_option('aqm_sitemaps_shortcodes', array());
     
     // Debug log
     error_log('AQM Sitemaps: Number of saved shortcodes: ' . count($saved_shortcodes));
@@ -513,7 +513,7 @@ function aqm_save_shortcode() {
 
     try {
         // Get existing shortcodes with error checking
-        $saved_shortcodes = get_option('aqm_sitemap_shortcodes', array());
+        $saved_shortcodes = get_option('aqm_sitemaps_shortcodes', array());
         if (!is_array($saved_shortcodes)) {
             $saved_shortcodes = array();
         }

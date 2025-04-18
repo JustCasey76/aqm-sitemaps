@@ -51,6 +51,12 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.10
+- Fixed critical issue with shortcode saving functionality
+- Corrected AJAX action name mismatch in JavaScript
+- Fixed option name inconsistency for saved shortcodes
+- Resolved issues with creating, editing, and deleting shortcodes
+
 ### 1.0.9
 - Fixed shortcode generator buttons not functioning correctly
 - Improved JavaScript event handling for dynamically added elements

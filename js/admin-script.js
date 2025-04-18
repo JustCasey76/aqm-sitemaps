@@ -233,7 +233,7 @@ jQuery(document).ready(function($) {
         
         // Add form field values to the data object for debugging
         const formData = {
-            action: 'aqm_sitemaps_save_shortcode',
+            action: 'aqm_save_shortcode',
             name: shortcodeName,
             shortcode: shortcode,
             edit_mode: editMode ? '1' : '0',
