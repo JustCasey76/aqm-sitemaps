@@ -118,12 +118,11 @@ class AQM_GitHub_Updater {
                 '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
             );
             
-            // Make sure the package URL is accessible
-            $test_response = wp_remote_head($update_data['download_url'], array('timeout' => 5));
-            if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
-                // Fallback to a direct GitHub download URL if the package URL is not accessible
-                $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
-            }
+            // Always use the direct GitHub download URL which is more reliable
+            $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
+            
+            // Log the package URL
+            error_log('AQM Sitemaps: Using package URL: ' . $obj->package);
             
             // Add to the response array
             if (!isset($transient->response)) {
@@ -207,10 +206,9 @@ class AQM_GitHub_Updater {
         $version = ltrim($release_data['tag_name'], 'v');
         error_log('AQM Sitemaps: Formatted version: ' . $version);
         
-        // Use the zipball_url from the GitHub API response
-        // This is the key difference from our previous approach
-        $download_url = $release_data['zipball_url'];
-        error_log('AQM Sitemaps: Using zipball_url: ' . $download_url);
+        // Use a direct GitHub download URL which is more reliable
+        $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
+        error_log('AQM Sitemaps: Using direct download URL: ' . $download_url);
         
         $update_data = array(
             'version' => $version,

@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.7
+- Fixed update download URL issue that was causing 404 errors
+- Improved reliability of the update process
+- Enhanced logging for update troubleshooting
+
 ### 1.0.6
 - Stability improvements
 - Minor code optimizations
