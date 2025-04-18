@@ -82,20 +82,21 @@ class AQM_GitHub_Updater {
         $update_data = $this->get_github_update_data();
         
         if ($update_data && version_compare($update_data['version'], $this->current_version, '>')) {
-            $plugin = new stdClass();
-            $plugin->slug = $this->plugin_basename;
-            $plugin->plugin = $this->plugin_basename;
-            $plugin->new_version = $update_data['version'];
-            $plugin->url = $update_data['url'];
-            $plugin->package = $update_data['download_url'];
-            $plugin->tested = isset($update_data['tested']) ? $update_data['tested'] : '';
-            $plugin->requires_php = isset($update_data['requires_php']) ? $update_data['requires_php'] : '';
-            $plugin->icons = array(
+            // Create a simple object for the updater
+            $obj = new stdClass();
+            $obj->slug = dirname($this->plugin_basename);
+            $obj->plugin = $this->plugin_basename;
+            $obj->new_version = $update_data['version'];
+            $obj->url = $update_data['url'];
+            $obj->package = $update_data['download_url'];
+            $obj->tested = isset($update_data['tested']) ? $update_data['tested'] : '';
+            $obj->requires_php = isset($update_data['requires_php']) ? $update_data['requires_php'] : '';
+            $obj->icons = array(
                 '1x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-128x128.png',
                 '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
             );
             
-            $transient->response[$this->plugin_basename] = $plugin;
+            $transient->response[$this->plugin_basename] = $obj;
         }
         
         return $transient;
@@ -107,10 +108,15 @@ class AQM_GitHub_Updater {
      * @return array|false Update data or false on failure
      */
     private function get_github_update_data() {
-        // Check cache first
-        $cached_data = get_transient($this->transient_name);
-        if ($cached_data !== false) {
-            return $cached_data;
+        // Force clear cache when manually checking for updates
+        if (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] === '1') {
+            delete_transient($this->transient_name);
+        } else {
+            // Check cache first
+            $cached_data = get_transient($this->transient_name);
+            if ($cached_data !== false) {
+                return $cached_data;
+            }
         }
         
         // Get latest release from GitHub API
@@ -119,7 +125,8 @@ class AQM_GitHub_Updater {
             'headers' => array(
                 'Accept' => 'application/vnd.github.v3+json',
                 'User-Agent' => 'WordPress/' . get_bloginfo('version')
-            )
+            ),
+            'timeout' => 10
         ));
         
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
@@ -135,19 +142,8 @@ class AQM_GitHub_Updater {
         // Format version number (remove 'v' prefix if present)
         $version = ltrim($release_data['tag_name'], 'v');
         
-        // Always use the zipball URL for consistent updates
-        // This ensures we can update even if no specific release asset is uploaded
-        $download_url = isset($release_data['zipball_url']) ? $release_data['zipball_url'] : false;
-        
-        // If zipball URL is not available, try to use a specific asset as fallback
-        if (!$download_url && isset($release_data['assets']) && is_array($release_data['assets'])) {
-            foreach ($release_data['assets'] as $asset) {
-                if (isset($asset['browser_download_url']) && strpos($asset['browser_download_url'], '.zip') !== false) {
-                    $download_url = $asset['browser_download_url'];
-                    break;
-                }
-            }
-        }
+        // Direct download URL for the repository archive
+        $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
         
         $update_data = array(
             'version' => $version,
@@ -221,11 +217,13 @@ class AQM_GitHub_Updater {
             return $source;
         }
         
-        // Get the correct target directory name
-        $correct_directory = dirname($source) . '/' . dirname($this->plugin_basename);
+        // The source directory from GitHub will be named like 'aqm-sitemaps-1.0.1'
+        // We need to rename it to just 'aqm-sitemaps'
+        $desired_folder_name = dirname($this->plugin_basename);
+        $correct_directory = dirname($source) . '/' . $desired_folder_name;
         
-        // Check if we need to rename the directory
-        if ($source !== $correct_directory) {
+        // Check if source directory contains the tag name (e.g., 'aqm-sitemaps-1.0.1')
+        if (strpos(basename($source), $desired_folder_name . '-') !== false) {
             // If the target directory already exists, remove it first
             if ($wp_filesystem->exists($correct_directory)) {
                 $wp_filesystem->delete($correct_directory, true);
