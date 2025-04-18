@@ -452,16 +452,5 @@ class AQM_GitHub_Updater {
         
         echo '</div>';
     }
-    
-    /**
-     * Add "Check for Updates" link to plugin actions
-     * 
-     * @param array $links Existing action links
-     * @return array Modified action links
-     */
-    public function add_action_links($links) {
-        $check_update_link = '<a href="' . wp_nonce_url(admin_url('plugins.php?aqm_check_for_updates=1&plugin=' . $this->plugin_basename), 'aqm-check-update') . '">Check for Updates</a>';
-        array_unshift($links, $check_update_link);
-        return $links;
-    }
+
 }

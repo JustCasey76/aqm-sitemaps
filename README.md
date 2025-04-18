@@ -51,6 +51,10 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.5
+- Fixed duplicate method declaration that was causing a fatal error
+- Improved code structure and organization
+
 ### 1.0.4
 - Added back "Check for Updates" link on plugins page
 - Improved update success notification with version information
