@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.1
+- Removed debug settings section from admin interface
+- Simplified plugin settings page
+- Code cleanup and optimization
+
 ### 1.0.0
 - Initial release with GitHub updater integration
 - Converted sitemap output from divs to unordered lists
