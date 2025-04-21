@@ -51,6 +51,10 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.12
+- Test version for GitHub updater functionality
+- No functional changes from 1.0.11
+
 ### 1.0.11
 - Enhanced GitHub updater to fix "The package could not be installed" error
 - Improved directory structure handling during plugin updates
