@@ -118,11 +118,20 @@ class AQM_GitHub_Updater {
                 '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
             );
             
-            // Always use the direct GitHub download URL which is more reliable
-            $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
+            // Use the download URL from the update data, which should be the zipball_url
+            $obj->package = $update_data['download_url'];
             
             // Log the package URL
             error_log('AQM Sitemaps: Using package URL: ' . $obj->package);
+            
+            // Verify the package URL is accessible
+            $test_response = wp_remote_head($obj->package, array('timeout' => 5));
+            if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
+                error_log('AQM Sitemaps: Package URL is not accessible, trying fallback URL');
+                // Fallback to a direct GitHub download URL
+                $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
+                error_log('AQM Sitemaps: Using fallback package URL: ' . $obj->package);
+            }
             
             // Add to the response array
             if (!isset($transient->response)) {
@@ -206,9 +215,16 @@ class AQM_GitHub_Updater {
         $version = ltrim($release_data['tag_name'], 'v');
         error_log('AQM Sitemaps: Formatted version: ' . $version);
         
-        // Use a direct GitHub download URL which is more reliable
-        $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
-        error_log('AQM Sitemaps: Using direct download URL: ' . $download_url);
+        // Use GitHub's zipball_url which is more reliable than constructing our own URL
+        $download_url = isset($release_data['zipball_url']) ? $release_data['zipball_url'] : '';
+        
+        // If zipball_url is not available, fall back to a direct download URL
+        if (empty($download_url)) {
+            $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
+            error_log('AQM Sitemaps: Zipball URL not found, using fallback URL: ' . $download_url);
+        } else {
+            error_log('AQM Sitemaps: Using GitHub zipball_url: ' . $download_url);
+        }
         
         $update_data = array(
             'version' => $version,
@@ -294,9 +310,28 @@ class AQM_GitHub_Updater {
     public function fix_directory_name($source, $remote_source, $upgrader, $hook_extra) {
         global $wp_filesystem;
         
-        // Only apply to this plugin
-        if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin_basename) {
-            return $source;
+        // Check if we're dealing with a plugin update
+        if (!isset($hook_extra['plugin']) && isset($hook_extra['theme'])) {
+            return $source; // This is a theme update, not our plugin
+        }
+        
+        // For plugin updates, check if it's our plugin
+        if (isset($hook_extra['plugin']) && $hook_extra['plugin'] !== $this->plugin_basename) {
+            return $source; // Not our plugin
+        }
+        
+        // For core updates or bulk updates where plugin isn't specified
+        if (!isset($hook_extra['plugin'])) {
+            // Try to detect if this is our plugin based on the source directory
+            $plugin_slug = dirname($this->plugin_basename);
+            $source_basename = basename($source);
+            
+            // Check if the source directory contains our repository name
+            if (strpos($source_basename, $this->github_repository) === false) {
+                return $source; // Likely not our plugin
+            }
+            
+            error_log('AQM Sitemaps: Detected potential plugin update during bulk update');
         }
         
         error_log('AQM Sitemaps: Fixing directory name during update');
@@ -306,7 +341,14 @@ class AQM_GitHub_Updater {
         $plugin_slug = dirname($this->plugin_basename);
         error_log('AQM Sitemaps: Plugin slug: ' . $plugin_slug);
         
-        // GitHub zipball typically creates a directory like 'username-repository-hash'
+        // Check if the source directory already has the correct name
+        $source_basename = basename($source);
+        if ($source_basename === $plugin_slug) {
+            error_log('AQM Sitemaps: Source directory already has the correct name');
+            return $source;
+        }
+        
+        // GitHub zipball typically creates a directory like 'username-repository-hash' or 'repository-tag'
         // We need to rename it to match our plugin slug
         $correct_directory = trailingslashit($remote_source) . $plugin_slug;
         error_log('AQM Sitemaps: Target directory: ' . $correct_directory);
@@ -317,6 +359,12 @@ class AQM_GitHub_Updater {
             $wp_filesystem->delete($correct_directory, true);
         }
         
+        // Check if source directory exists
+        if (!$wp_filesystem->exists($source)) {
+            error_log('AQM Sitemaps: Source directory does not exist: ' . $source);
+            return $source;
+        }
+        
         // Rename the directory
         error_log('AQM Sitemaps: Attempting to rename ' . $source . ' to ' . $correct_directory);
         if ($wp_filesystem->move($source, $correct_directory)) {
@@ -324,6 +372,18 @@ class AQM_GitHub_Updater {
             return $correct_directory;
         } else {
             error_log('AQM Sitemaps: Failed to rename directory');
+            
+            // Log filesystem details for debugging
+            error_log('AQM Sitemaps: WP Filesystem method: ' . get_filesystem_method());
+            
+            // Try to determine why the move failed
+            if (!$wp_filesystem->is_writable($remote_source)) {
+                error_log('AQM Sitemaps: Remote source directory is not writable');
+            }
+            
+            if ($wp_filesystem->exists($correct_directory)) {
+                error_log('AQM Sitemaps: Target directory already exists after failed move');
+            }
         }
         
         return $source;

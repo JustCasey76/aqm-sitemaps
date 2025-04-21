@@ -51,6 +51,13 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 1.0.11
+- Enhanced GitHub updater to fix "The package could not be installed" error
+- Improved directory structure handling during plugin updates
+- Now using GitHub's zipball_url for more reliable updates
+- Added fallback mechanisms for update package retrieval
+- Enhanced logging for update troubleshooting
+
 ### 1.0.10
 - Fixed critical issue with shortcode saving functionality
 - Corrected AJAX action name mismatch in JavaScript
