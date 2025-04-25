@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 1.0.13
+ * Version: 1.0.14
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '1.0.13');
+define('AQM_SITEMAPS_VERSION', '1.0.14');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -643,7 +643,8 @@ function display_enhanced_page_sitemap($atts) {
         'show_all' => 'no', // New parameter to show all pages
         'item_margin' => '10px', // New parameter for item bottom margin
         'icon' => '', // New parameter for Font Awesome icon
-        'icon_color' => '' // New parameter for icon color
+        'icon_color' => '', // New parameter for icon color
+        'disable_links' => 'no' // New parameter to disable links and show only titles
     ), $atts, 'sitemap_page');
 
     // Sanitize attributes
@@ -657,6 +658,7 @@ function display_enhanced_page_sitemap($atts) {
     $item_margin = sanitize_text_field($atts['item_margin']);
     $icon = sanitize_text_field($atts['icon']);
     $icon_color = sanitize_hex_color($atts['icon_color']) ?: sanitize_text_field($atts['icon_color']);
+    $disable_links = in_array(strtolower($atts['disable_links']), array('yes', 'true', '1')) ? true : false;
     
     // Ensure item_margin is not empty
     if (empty($item_margin)) {
@@ -680,6 +682,7 @@ function display_enhanced_page_sitemap($atts) {
         $debug .= '<p><strong>Debug Info:</strong></p>';
         $debug .= '<p>Shortcode used: ' . current_filter() . '</p>';
         $debug .= '<p>Show All Pages: ' . ($show_all ? 'Yes' : 'No') . '</p>';
+        $debug .= '<p>Disable Links: ' . ($disable_links ? 'Yes' : 'No') . '</p>';
         if (!$show_all) {
             $debug .= '<p>Folder: ' . esc_html($folder_slug) . '</p>';
         }
@@ -881,11 +884,18 @@ function display_enhanced_page_sitemap($atts) {
     if ($display_type === 'inline') {
         $links = array();
         foreach ($pages as $page) {
-            $links[] = sprintf(
-                '<a href="%s">%s</a>',
-                esc_url(get_permalink($page->ID)),
-                esc_html($page->post_title)
-            );
+            if ($disable_links) {
+                $links[] = sprintf(
+                    '<span class="aqm-sitemap-item">%s</span>',
+                    esc_html($page->post_title)
+                );
+            } else {
+                $links[] = sprintf(
+                    '<a href="%s">%s</a>',
+                    esc_url(get_permalink($page->ID)),
+                    esc_html($page->post_title)
+                );
+            }
         }
         $output .= implode(' | ', $links);
     } 
@@ -940,13 +950,22 @@ function display_enhanced_page_sitemap($atts) {
                         $icon_html = sprintf('<i class="%s" style="%s"></i>', esc_attr($icon_class), $icon_style);
                     }
                     
-                    $output .= sprintf(
-                        '<li style="margin-bottom:%s;"><a href="%s">%s%s</a></li>',
-                        esc_attr($item_margin),
-                        esc_url(get_permalink($pages[$idx]->ID)),
-                        $icon_html,
-                        esc_html($pages[$idx]->post_title)
-                    );
+                    if ($disable_links) {
+                        $output .= sprintf(
+                            '<li style="margin-bottom:%s;"><span class="aqm-sitemap-item">%s%s</span></li>',
+                            esc_attr($item_margin),
+                            $icon_html,
+                            esc_html($pages[$idx]->post_title)
+                        );
+                    } else {
+                        $output .= sprintf(
+                            '<li style="margin-bottom:%s;"><a href="%s">%s%s</a></li>',
+                            esc_attr($item_margin),
+                            esc_url(get_permalink($pages[$idx]->ID)),
+                            $icon_html,
+                            esc_html($pages[$idx]->post_title)
+                        );
+                    }
                 }
             }
             
@@ -955,6 +974,10 @@ function display_enhanced_page_sitemap($atts) {
             // End column
             $output .= '</div>';
         }
+        
+        // End column layout
+        $output .= '</div>';
+    }
         
         // End column layout
         $output .= '</div>';
