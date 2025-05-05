@@ -1,4 +1,6 @@
 <?php
+namespace AQM_Sitemaps\Updater;
+
 /**
  * AQM GitHub Updater Class
  * 
@@ -10,8 +12,6 @@
 if (!defined('ABSPATH')) {
     exit;
 }
-
-namespace AQM_Sitemaps\Updater;
 
 class GitHub_Updater {
     private $plugin_file;
