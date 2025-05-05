@@ -11,7 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AQM_GitHub_Updater {
+namespace AQM_Sitemaps\Updater;
+
+class GitHub_Updater {
     private $plugin_file;
     private $plugin_basename;
     private $github_username;
