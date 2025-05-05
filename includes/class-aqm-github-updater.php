@@ -1,6 +1,8 @@
 <?php
 namespace AQM_Sitemaps\Updater;
 
+use stdClass;
+
 /**
  * AQM GitHub Updater Class
  * 
@@ -86,6 +88,9 @@ class GitHub_Updater {
         if (!is_object($transient)) {
             $transient = new stdClass();
         }
+        
+        // Log the transient object state
+        error_log('AQM Sitemaps: Transient state: ' . (is_object($transient) ? 'is object' : 'not object'));
         
         if (!isset($transient->checked)) {
             $transient->checked = array();
@@ -184,15 +189,19 @@ class GitHub_Updater {
                 'Accept' => 'application/vnd.github.v3+json',
                 'User-Agent' => 'WordPress/' . get_bloginfo('version')
             ),
-            'timeout' => 15,
-            'sslverify' => false // Sometimes needed for servers with SSL issues
+            'timeout' => 30, // Increased timeout for slower connections
+            'sslverify' => true // Enable SSL verification for security
         ));
         
         if (is_wp_error($response)) {
             error_log('AQM Sitemaps: GitHub API Error: ' . $response->get_error_message());
+            error_log('AQM Sitemaps: Error code: ' . $response->get_error_code());
             return false;
         } else if (wp_remote_retrieve_response_code($response) !== 200) {
-            error_log('AQM Sitemaps: GitHub API returned status code: ' . wp_remote_retrieve_response_code($response));
+            $status_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
+            error_log('AQM Sitemaps: GitHub API returned status code: ' . $status_code);
+            error_log('AQM Sitemaps: Response body: ' . $response_body);
             return false;
         }
         
@@ -216,14 +225,36 @@ class GitHub_Updater {
         // Format version number (remove 'v' prefix if present)
         $version = ltrim($release_data['tag_name'], 'v');
         error_log('AQM Sitemaps: Formatted version: ' . $version);
+        error_log('AQM Sitemaps: Original tag name: ' . $release_data['tag_name']);
         
         // Use GitHub's zipball_url which is more reliable than constructing our own URL
         $download_url = isset($release_data['zipball_url']) ? $release_data['zipball_url'] : '';
         
         // If zipball_url is not available, fall back to a direct download URL
         if (empty($download_url)) {
+            // Try both formats - with and without 'v' prefix
+            $tag_with_v = (strpos($release_data['tag_name'], 'v') === 0) ? $release_data['tag_name'] : 'v' . $release_data['tag_name'];
+            $tag_without_v = ltrim($release_data['tag_name'], 'v');
+            
+            // First try with the exact tag name from the release
             $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
-            error_log('AQM Sitemaps: Zipball URL not found, using fallback URL: ' . $download_url);
+            error_log('AQM Sitemaps: Zipball URL not found, trying primary fallback URL: ' . $download_url);
+            
+            // Test if the URL is accessible
+            $test_response = wp_remote_head($download_url, array('timeout' => 5));
+            if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
+                // Try with 'v' prefix if not already there
+                $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $tag_with_v . '.zip';
+                error_log('AQM Sitemaps: Primary fallback failed, trying with v-prefix: ' . $download_url);
+                
+                // Test again
+                $test_response = wp_remote_head($download_url, array('timeout' => 5));
+                if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
+                    // Try without 'v' prefix as last resort
+                    $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $tag_without_v . '.zip';
+                    error_log('AQM Sitemaps: Secondary fallback failed, trying without v-prefix: ' . $download_url);
+                }
+            }
         } else {
             error_log('AQM Sitemaps: Using GitHub zipball_url: ' . $download_url);
         }
@@ -455,6 +486,8 @@ class GitHub_Updater {
             $current = new stdClass();
         }
         
+        error_log('AQM Sitemaps: Forcing update check');
+        
         if (!isset($current->checked)) {
             $current->checked = array();
         }
@@ -479,13 +512,38 @@ class GitHub_Updater {
     
     /**
      * After update success callback
+     * 
+     * @param bool|WP_Error $response Installation response
+     * @param array $hook_extra Extra arguments passed to hooked filters
+     * @param array $result Installation result data
+     * @return bool|WP_Error The passed result
      */
     public function after_update_success($response, $hook_extra, $result) {
         if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->plugin_basename) {
+            error_log('AQM Sitemaps: Update completed successfully');
+            
+            // Clear all update-related transients
+            delete_transient($this->transient_name);
+            delete_site_transient('update_plugins');
+            
+            // Mark that the plugin was updated
+            update_option('aqm_sitemaps_needs_update_check', true);
+            
+            // Make sure the plugin is marked as active
+            update_option('aqm_sitemaps_was_active', true);
+            
             // Add our custom redirect parameter
             add_filter('wp_redirect', function($location) {
                 return add_query_arg('aqm_updated', '1', $location);
             });
+            
+            // Log the update success with version info
+            if (!function_exists('get_plugin_data')) {
+                require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+            }
+            $plugin_data = get_plugin_data($this->plugin_file);
+            $new_version = $plugin_data['Version'];
+            error_log('AQM Sitemaps: Plugin updated to version ' . $new_version);
         }
         return $response;
     }

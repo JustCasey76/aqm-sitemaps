@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 2.1.6
+ * Version: 2.1.7
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '2.1.6');
+define('AQM_SITEMAPS_VERSION', '2.1.7');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -31,11 +31,23 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php'
 // Initialize the GitHub Updater
 function aqm_sitemaps_init_github_updater() {
     if (class_exists('AQM_Sitemaps\\Updater\\GitHub_Updater')) {
-        new AQM_Sitemaps\Updater\GitHub_Updater(
-            __FILE__,
-            'JustCasey76',
-            'aqm-sitemaps'
-        );
+        // Log that we're initializing the updater
+        error_log('AQM Sitemaps: Initializing GitHub Updater for version ' . AQM_SITEMAPS_VERSION);
+        
+        try {
+            new AQM_Sitemaps\Updater\GitHub_Updater(
+                __FILE__,
+                'JustCasey76',
+                'aqm-sitemaps'
+            );
+        } catch (Exception $e) {
+            error_log('AQM Sitemaps: Error initializing GitHub Updater: ' . $e->getMessage());
+        }
+        
+        // Set last update check time
+        update_option('aqm_sitemaps_last_update_check', time());
+    } else {
+        error_log('AQM Sitemaps: GitHub Updater class not found');
     }
 }
 add_action('admin_init', 'aqm_sitemaps_init_github_updater');
@@ -72,7 +84,23 @@ function aqm_ensure_plugin_activated() {
             error_log('AQM Sitemaps: Plugin was previously active but is now inactive. Reactivating...');
             activate_plugin($plugin_basename);
             error_log('AQM Sitemaps: Plugin reactivation completed');
+            
+            // Clear update transients after reactivation
+            delete_transient('aqm_github_update_' . md5($plugin_basename));
+            delete_site_transient('update_plugins');
         }
+    }
+    
+    // Check if this is the first run after an update
+    if (get_option('aqm_sitemaps_needs_update_check', false)) {
+        // Force an update check
+        delete_transient('aqm_github_update_' . md5(plugin_basename(__FILE__)));
+        delete_site_transient('update_plugins');
+        
+        // Reset the flag
+        delete_option('aqm_sitemaps_needs_update_check');
+        
+        error_log('AQM Sitemaps: Forced update check after plugin activation');
     }
 }
 add_action('admin_init', 'aqm_ensure_plugin_activated');
@@ -203,7 +231,6 @@ function migrate_old_shortcodes() {
 // Add plugin options on activation
 function aqm_sitemaps_activate() {
     // Set default options if they don't exist
-
     if (get_option('aqm_sitemaps_show_debug') === false) {
         add_option('aqm_sitemaps_show_debug', 1); // Default to showing debug info
     }
@@ -211,10 +238,29 @@ function aqm_sitemaps_activate() {
     // Set the last update check time
     if (get_option('aqm_sitemaps_last_update_check') === false) {
         add_option('aqm_sitemaps_last_update_check', time());
-
     }
+    
+    // Mark plugin as active for reactivation after updates
+    update_option('aqm_sitemaps_was_active', true);
+    
+    // Clear any update transients to force a fresh check
+    delete_transient('aqm_github_update_' . md5(plugin_basename(__FILE__)));
+    delete_site_transient('update_plugins');
+    
+    // Log activation
+    error_log('AQM Sitemaps: Plugin activated, version ' . AQM_SITEMAPS_VERSION);
 }
 register_activation_hook(__FILE__, 'aqm_sitemaps_activate');
+
+// Handle plugin deactivation
+function aqm_sitemaps_deactivate() {
+    // Mark plugin as inactive
+    update_option('aqm_sitemaps_was_active', false);
+    
+    // Log deactivation
+    error_log('AQM Sitemaps: Plugin deactivated');
+}
+register_deactivation_hook(__FILE__, 'aqm_sitemaps_deactivate');
 
 // Main admin page
 function aqm_sitemaps_page() {
