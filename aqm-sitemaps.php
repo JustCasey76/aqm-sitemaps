@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 2.1.8
+ * Version: 2.1.9
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '2.1.8');
+define('AQM_SITEMAPS_VERSION', '2.1.9');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -26,28 +26,31 @@ function aqm_sitemaps_load_textdomain() {
 add_action('init', 'aqm_sitemaps_load_textdomain');
 
 // Include the GitHub Updater class
-require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-aqmsm-updater.php';
 
 // Initialize the GitHub Updater
 function aqm_sitemaps_init_github_updater() {
-    if (class_exists('AQM_Sitemaps\\Updater\\GitHub_Updater')) {
-        // Log that we're initializing the updater
-        error_log('AQM Sitemaps: Initializing GitHub Updater for version ' . AQM_SITEMAPS_VERSION);
-        
+    // Log that we're initializing the updater
+    error_log('=========================================================');
+    error_log('[AQM SITEMAPS v' . AQM_SITEMAPS_VERSION . '] USING CUSTOM UPDATER CLASS');
+    error_log('=========================================================');
+    
+    if (class_exists('AQMSM_Updater')) {
         try {
-            new AQM_Sitemaps\Updater\GitHub_Updater(
-                __FILE__,
-                'JustCasey76',
-                'aqm-sitemaps'
+            new AQMSM_Updater(
+                __FILE__,                // Plugin File
+                'JustCasey76',           // GitHub username
+                'aqm-sitemaps',          // GitHub repository name
+                ''                       // Optional GitHub access token (for private repos)
             );
+            
+            // Set last update check time
+            update_option('aqm_sitemaps_last_update_check', time());
         } catch (Exception $e) {
-            error_log('AQM Sitemaps: Error initializing GitHub Updater: ' . $e->getMessage());
+            error_log('[AQM SITEMAPS] Error initializing updater: ' . $e->getMessage());
         }
-        
-        // Set last update check time
-        update_option('aqm_sitemaps_last_update_check', time());
     } else {
-        error_log('AQM Sitemaps: GitHub Updater class not found');
+        error_log('[AQM SITEMAPS] Updater class not found');
     }
 }
 add_action('admin_init', 'aqm_sitemaps_init_github_updater');
@@ -66,46 +69,142 @@ function aqm_sitemaps_show_update_success() {
             <p><strong>AQM Sitemaps Updated Successfully!</strong> The plugin has been updated to version ' . AQM_SITEMAPS_VERSION . '.</p>
         </div>';
     }
+    
+    // Check if we're showing a reactivation notice
+    if (get_transient('aqmsm_reactivated')) {
+        // Delete the transient
+        delete_transient('aqmsm_reactivated');
+        
+        echo '<div class="notice notice-success is-dismissible">
+            <p><strong>AQM Sitemaps Reactivated!</strong> The plugin has been reactivated after an update.</p>
+        </div>';
+    }
 }
 add_action('admin_notices', 'aqm_sitemaps_show_update_success');
 
-// Ensure plugin stays activated after updates
-function aqm_ensure_plugin_activated() {
-    // Check if plugin should be active but isn't
+/**
+ * Attempts to reactivate the plugin after an update is complete.
+ * Hooks into 'upgrader_process_complete'.
+ * 
+ * @param WP_Upgrader $upgrader_object WP_Upgrader instance.
+ * @param array       $options         Array of bulk item update data.
+ */
+function aqm_sitemaps_reactivate_on_update($upgrader_object, $options) {
+    // Check if this is a plugin update
+    if ($options['action'] !== 'update' || $options['type'] !== 'plugin') {
+        return;
+    }
+    
+    // Get the plugin basename
+    $plugin_basename = plugin_basename(__FILE__);
+    
+    // Check if our plugin was updated
+    if (!isset($options['plugins']) || !in_array($plugin_basename, $options['plugins'])) {
+        return;
+    }
+    
+    error_log('[AQM SITEMAPS] Plugin update detected, checking activation state');
+    
+    // Check if the plugin was active before the update
     if (get_option('aqm_sitemaps_was_active', false)) {
-        $plugin_basename = plugin_basename(__FILE__);
-        
+        // Make sure plugin functions are loaded
         if (!function_exists('is_plugin_active') || !function_exists('activate_plugin')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
         
         // If plugin is not active, reactivate it
         if (!is_plugin_active($plugin_basename)) {
-            error_log('AQM Sitemaps: Plugin was previously active but is now inactive. Reactivating...');
-            activate_plugin($plugin_basename);
-            error_log('AQM Sitemaps: Plugin reactivation completed');
+            error_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
             
-            // Clear update transients after reactivation
-            delete_transient('aqm_github_update_' . md5($plugin_basename));
-            delete_site_transient('update_plugins');
+            // Reactivate the plugin
+            $result = activate_plugin($plugin_basename);
+            
+            if (is_wp_error($result)) {
+                error_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
+            } else {
+                error_log('[AQM SITEMAPS] Plugin successfully reactivated');
+                
+                // Set a transient to show a notice
+                set_transient('aqmsm_reactivated', true, 30);
+            }
+            
+            // Clear plugin cache
+            wp_clean_plugins_cache(true);
         }
     }
-    
-    // Check if this is the first run after an update
-    if (get_option('aqm_sitemaps_needs_update_check', false)) {
-        // Force an update check
-        delete_transient('aqm_github_update_' . md5(plugin_basename(__FILE__)));
-        delete_site_transient('update_plugins');
-        
-        // Reset the flag
-        delete_option('aqm_sitemaps_needs_update_check');
-        
-        error_log('AQM Sitemaps: Forced update check after plugin activation');
-    }
 }
-add_action('admin_init', 'aqm_ensure_plugin_activated');
+add_action('upgrader_process_complete', 'aqm_sitemaps_reactivate_on_update', 10, 2);
 
+/**
+ * Add custom action links to the plugin entry on the plugins page.
+ *
+ * @param array $links An array of plugin action links.
+ * @return array An array of plugin action links.
+ */
+function aqm_sitemaps_add_action_links($links) {
+    // Add 'Check for Updates' link
+    $check_update_link = '<a href="' . wp_nonce_url(admin_url('admin-ajax.php?action=aqm_sitemaps_check_updates'), 'aqm-sitemaps-check-updates') . '" class="aqm-check-updates">Check for Updates</a>';
+    array_unshift($links, $check_update_link);
+    
+    return $links;
+}
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'aqm_sitemaps_add_action_links');
 
+/**
+ * Enqueue admin scripts specifically for the plugins page.
+ *
+ * @param string $hook The current admin page.
+ */
+function aqm_sitemaps_enqueue_admin_scripts($hook) {
+    if ($hook !== 'plugins.php') {
+        return;
+    }
+    
+    // Enqueue the script
+    wp_enqueue_script(
+        'aqm-sitemaps-admin-js',
+        plugins_url('js/admin-updates.js', __FILE__),
+        array('jquery'),
+        AQM_SITEMAPS_VERSION,
+        true
+    );
+    
+    // Localize the script with our data
+    wp_localize_script(
+        'aqm-sitemaps-admin-js',
+        'aqmSitemapsData',
+        array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('aqm-sitemaps-check-updates'),
+            'checkingText' => 'Checking for updates...',
+            'successText' => 'Update check complete!',
+            'errorText' => 'Error checking for updates.'
+        )
+    );
+}
+add_action('admin_enqueue_scripts', 'aqm_sitemaps_enqueue_admin_scripts');
+
+/**
+ * Handle the AJAX request to check for plugin updates.
+ */
+function aqm_sitemaps_handle_check_updates_ajax() {
+    // Verify nonce
+    check_ajax_referer('aqm-sitemaps-check-updates', 'nonce');
+    
+    // Clear update transients to force a fresh check
+    delete_transient('aqmsm_github_data_' . md5('JustCasey76' . 'aqm-sitemaps'));
+    delete_site_transient('update_plugins');
+    
+    // Force WordPress to check for updates
+    wp_clean_plugins_cache(true);
+    
+    // Log the manual update check
+    error_log('[AQM SITEMAPS] Manual update check triggered');
+    
+    // Send success response
+    wp_send_json_success(array('message' => 'Update check complete'));
+}
+add_action('wp_ajax_aqm_sitemaps_check_updates', 'aqm_sitemaps_handle_check_updates_ajax');
 
 // Update existing shortcodes to include new parameters
 function aqm_update_shortcodes_with_margin() {
@@ -244,11 +343,13 @@ function aqm_sitemaps_activate() {
     update_option('aqm_sitemaps_was_active', true);
     
     // Clear any update transients to force a fresh check
-    delete_transient('aqm_github_update_' . md5(plugin_basename(__FILE__)));
+    delete_transient('aqmsm_github_data_' . md5('JustCasey76' . 'aqm-sitemaps'));
     delete_site_transient('update_plugins');
     
     // Log activation
-    error_log('AQM Sitemaps: Plugin activated, version ' . AQM_SITEMAPS_VERSION);
+    error_log('=========================================================');
+    error_log('[AQM SITEMAPS] Plugin activated, version ' . AQM_SITEMAPS_VERSION);
+    error_log('=========================================================');
 }
 register_activation_hook(__FILE__, 'aqm_sitemaps_activate');
 
@@ -258,7 +359,9 @@ function aqm_sitemaps_deactivate() {
     update_option('aqm_sitemaps_was_active', false);
     
     // Log deactivation
-    error_log('AQM Sitemaps: Plugin deactivated');
+    error_log('=========================================================');
+    error_log('[AQM SITEMAPS] Plugin deactivated');
+    error_log('=========================================================');
 }
 register_deactivation_hook(__FILE__, 'aqm_sitemaps_deactivate');
 
