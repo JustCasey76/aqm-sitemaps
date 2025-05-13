@@ -1,8 +1,6 @@
 <?php
 namespace AQM_Sitemaps\Updater;
 
-use stdClass;
-
 /**
  * AQM GitHub Updater Class
  * 
@@ -86,7 +84,7 @@ class GitHub_Updater {
     public function check_for_updates($transient) {
         // Always check for updates, even if the transient is empty
         if (!is_object($transient)) {
-            $transient = new stdClass();
+            $transient = new \stdClass();
         }
         
         // Log the transient object state
@@ -110,7 +108,7 @@ class GitHub_Updater {
         
         if ($update_data && version_compare($update_data['version'], $this->current_version, '>')) {
             // Create a standard plugin_information object
-            $obj = new stdClass();
+            $obj = new \stdClass();
             $obj->id = $this->plugin_basename;
             $obj->slug = dirname($this->plugin_basename);
             $obj->plugin = $this->plugin_basename;
@@ -119,7 +117,7 @@ class GitHub_Updater {
             $obj->package = $update_data['download_url'];
             $obj->tested = isset($update_data['tested']) ? $update_data['tested'] : '';
             $obj->requires_php = isset($update_data['requires_php']) ? $update_data['requires_php'] : '';
-            $obj->compatibility = new stdClass();
+            $obj->compatibility = new \stdClass();
             $obj->icons = array(
                 '1x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-128x128.png',
                 '2x' => 'https://ps.w.org/aqm-sitemaps/assets/icon-256x256.png'
