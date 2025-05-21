@@ -117,8 +117,18 @@ jQuery(document).ready(function($) {
         initializeFieldVisibility();
     }, 500);
 
-    // Handle excluded pages
-    jQuery(document).on('click', '#add_excluded_page', function(e) {
+    // Initialize the excluded pages functionality on document ready
+    jQuery(function() {
+        console.log('Initializing excluded pages functionality');
+        
+        // Direct binding to the add button to ensure it works immediately
+        jQuery('#add_excluded_page').on('click', function(e) {
+            handleAddExcludedPage(e);
+        });
+    });
+    
+    // Handle excluded pages with a separate function for reusability
+    function handleAddExcludedPage(e) {
         e.preventDefault(); // Prevent any default action
         console.log('Add excluded page button clicked');
         
@@ -129,12 +139,14 @@ jQuery(document).ready(function($) {
         
         if (!pageId) {
             console.log('No page selected');
+            alert('Please select a page to exclude');
             return;
         }
         
         // Check if already in list
         if (jQuery('#excluded_pages_list').find(`[data-id="${pageId}"]`).length > 0) {
             console.log('Page already in excluded list');
+            alert('This page is already in the excluded list');
             return;
         }
         
@@ -153,15 +165,30 @@ jQuery(document).ready(function($) {
         
         // Reset dropdown
         jQuery('#page_to_exclude').val('');
+    }
+    
+    // Also keep the document delegation as a fallback
+    jQuery(document).on('click', '#add_excluded_page', function(e) {
+        handleAddExcludedPage(e);
     });
     
-    // Remove excluded page
-    jQuery(document).on('click', '.remove-excluded-page', function(e) {
+    // Initialize the remove excluded page functionality on document ready
+    jQuery(function() {
+        console.log('Initializing remove excluded page functionality');
+        
+        // Direct binding for any existing remove buttons
+        jQuery('.remove-excluded-page').on('click', function(e) {
+            handleRemoveExcludedPage(e, this);
+        });
+    });
+    
+    // Handle removing excluded pages with a separate function for reusability
+    function handleRemoveExcludedPage(e, button) {
         e.preventDefault(); // Prevent any default action
         console.log('Remove excluded page button clicked');
         
         // Remove the item from the list
-        const $item = jQuery(this).closest('.excluded-page-item, .excluded-page');
+        const $item = jQuery(button).closest('.excluded-page-item, .excluded-page');
         const pageId = $item.data('id');
         console.log('Removing excluded page ID:', pageId);
         
@@ -169,6 +196,11 @@ jQuery(document).ready(function($) {
         
         // Update the hidden input
         updateExcludedIdsInput();
+    }
+    
+    // Also keep the document delegation for dynamically added elements
+    jQuery(document).on('click', '.remove-excluded-page', function(e) {
+        handleRemoveExcludedPage(e, this);
     });
     
     // Update hidden input with excluded IDs
