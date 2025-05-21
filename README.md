@@ -51,6 +51,11 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 2.2.3
+- Fixed redirection issue after shortcode creation on different WordPress installations
+- Improved form submission handling with proper URL redirection
+- Enhanced logging for troubleshooting redirection issues
+
 ### 2.2.2
 - Fixed issue with shortcode creation process that was causing session timeouts
 - Changed form submission method from AJAX to traditional form submission to avoid session issues

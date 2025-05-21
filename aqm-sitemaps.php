@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 2.2.2
+ * Version: 2.2.3
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '2.2.2');
+define('AQM_SITEMAPS_VERSION', '2.2.3');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -795,11 +795,16 @@ function aqm_sitemaps_page() {
                         }
                     }
                     
-                    // Add a redirect field
+                    // Add a redirect field with the full URL to return to
+                    const currentUrl = window.location.href.split('?')[0]; // Get base URL without query params
+                    const redirectUrl = currentUrl + '?page=aqm-sitemaps';
+                    
+                    console.log('Setting redirect URL to:', redirectUrl);
+                    
                     const redirectInput = document.createElement('input');
                     redirectInput.type = 'hidden';
-                    redirectInput.name = 'redirect';
-                    redirectInput.value = '<?php echo admin_url('admin.php?page=aqm-sitemaps'); ?>';
+                    redirectInput.name = 'redirect_to';
+                    redirectInput.value = redirectUrl;
                     form.appendChild(redirectInput);
                     
                     // Append the form to the body and submit it
@@ -1427,7 +1432,8 @@ function aqm_save_shortcode_post() {
     $original_name = isset($_POST['original_name']) ? sanitize_text_field($_POST['original_name']) : '';
     
     // Get redirect URL
-    $redirect_url = isset($_POST['redirect']) ? $_POST['redirect'] : admin_url('admin.php?page=aqm-sitemaps');
+    $redirect_url = isset($_POST['redirect_to']) ? $_POST['redirect_to'] : admin_url('admin.php?page=aqm-sitemaps');
+    error_log('AQM Sitemaps: Redirect URL: ' . $redirect_url);
     
     // Get icon and icon_color values
     $icon = isset($_POST['icon']) ? sanitize_text_field($_POST['icon']) : '';
