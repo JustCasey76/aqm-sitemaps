@@ -89,9 +89,6 @@ class AQMSM_Updater {
         add_filter('upgrader_source_selection', array($this, 'fix_directory_name'), 10, 4);
         add_action('admin_init', array($this, 'maybe_reactivate_plugin'));
 
-        // Initialize the updater
-        $this->init();
-        
         // Clear update cache to force a fresh check
         $this->clear_update_cache();
         
