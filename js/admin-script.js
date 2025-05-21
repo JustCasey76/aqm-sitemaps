@@ -1,26 +1,33 @@
+/**
+ * AQM Sitemaps Admin JavaScript
+ * Handles all admin functionality for the AQM Sitemaps plugin
+ * Version: 2.2.2
+ * Last updated: 2025-05-21
+ */
+
 jQuery(document).ready(function($) {
-    console.log('AQM Sitemaps script loaded'); // Debug log
+    console.log('AQM Sitemaps script loaded - Updated version'); // Debug log with version marker
 
     // Function to reset form to create mode
     function resetToCreateMode() {
         $('#edit_mode').val('0');
         $('#original_name').val('');
         $('#shortcode_name').val('');
-        $('.aqm-sitemaps-generator h2').text('Create New Sitemap');
+        $('.aqm-sitemap-generator h2').text('Create New Sitemap');
         $('#submit_button').text('Generate Shortcode');
-        $('#aqm-sitemaps-form')[0].reset();
+        $('#aqm-sitemap-form')[0].reset();
     }
 
     // Auto-fill shortcode name when folder checkboxes change
-    $('.folder-checklist input[type="checkbox"]').on('change', function() {
+    jQuery('.folder-checklist input[type="checkbox"]').on('change', function() {
         // Only auto-fill if not in edit mode and shortcode name is empty
-        if ($('#edit_mode').val() !== '1' && !$('#shortcode_name').val().trim()) {
+        if (jQuery('#edit_mode').val() !== '1' && !jQuery('#shortcode_name').val().trim()) {
             console.log('Folder selection changed'); // Debug log
             
             // Get all selected folders
             const selectedFolders = [];
-            $('.folder-checklist input[type="checkbox"]:checked').each(function() {
-                const folderName = $(this).next('label').text();
+            jQuery('.folder-checklist input[type="checkbox"]:checked').each(function() {
+                const folderName = jQuery(this).next('label').text();
                 selectedFolders.push(folderName);
             });
             
@@ -35,78 +42,161 @@ jQuery(document).ready(function($) {
                 
                 // Remove any special characters but preserve spaces and capitalization
                 shortcodeName = shortcodeName.replace(/[^a-zA-Z0-9\s]+/g, ' ').trim();
-                $('#shortcode_name').val(shortcodeName).trigger('change');
+                jQuery('#shortcode_name').val(shortcodeName).trigger('change');
                 console.log('Set shortcode name to:', shortcodeName); // Debug log
             } else {
-                $('#shortcode_name').val('');
+                jQuery('#shortcode_name').val('');
                 console.log('Cleared shortcode name'); // Debug log
             }
         }
     });
 
-    // Toggle columns field visibility based on display type
-    $('#display_type').on('change', function() {
-        const displayType = $(this).val();
+    // Toggle fields visibility based on display type
+    jQuery('#display_type').on('change', function() {
+        const displayType = jQuery(this).val();
         if (displayType === 'inline') {
-            $('.columns-option').hide();
+            jQuery('.columns-option').hide();
+            jQuery('.inline-options').show();
+            // Check if divider is enabled
+            toggleDividerOptions();
         } else {
-            $('.columns-option').show();
+            jQuery('.columns-option').show();
+            jQuery('.inline-options').hide();
+            jQuery('.divider-options').hide();
         }
     });
+    
+    // Toggle divider options based on use_divider selection
+    jQuery('#use_divider').on('change', function() {
+        toggleDividerOptions();
+    });
+    
+    // Function to toggle divider options visibility
+    function toggleDividerOptions() {
+        if (jQuery('#display_type').val() === 'inline' && jQuery('#use_divider').val() === 'yes') {
+            jQuery('.divider-options').show();
+        } else {
+            jQuery('.divider-options').hide();
+        }
+    }
+    
+    // Initialize visibility on page load
+    function initializeFieldVisibility() {
+        console.log('Initializing field visibility');
+        const displayType = jQuery('#display_type').val();
+        console.log('Current display type:', displayType);
+        
+        if (displayType === 'inline') {
+            console.log('Setting up inline display options');
+            jQuery('.columns-option').hide();
+            jQuery('.inline-options').show();
+            
+            // Check use_divider value and show/hide divider options accordingly
+            const useDivider = jQuery('#use_divider').val();
+            console.log('Use divider value:', useDivider);
+            
+            if (useDivider === 'yes') {
+                jQuery('.divider-options').show();
+            } else {
+                jQuery('.divider-options').hide();
+            }
+        } else {
+            console.log('Setting up columns display options');
+            jQuery('.columns-option').show();
+            jQuery('.inline-options').hide();
+            jQuery('.divider-options').hide();
+        }
+    }
+    
+    // Call initialization function immediately
+    initializeFieldVisibility();
+    
+    // Also call it after a short delay to ensure DOM is fully loaded
+    setTimeout(function() {
+        console.log('Running delayed initialization');
+        initializeFieldVisibility();
+    }, 500);
 
     // Handle excluded pages
-    $('#add_excluded_page').on('click', function() {
-        const pageId = $('#page_to_exclude').val();
-        const pageTitle = $('#page_to_exclude option:selected').text();
+    jQuery(document).on('click', '#add_excluded_page', function(e) {
+        e.preventDefault(); // Prevent any default action
+        console.log('Add excluded page button clicked');
         
-        if (!pageId) return;
+        const pageId = jQuery('#page_to_exclude').val();
+        const pageTitle = jQuery('#page_to_exclude option:selected').text();
+        
+        console.log('Selected page:', pageId, pageTitle);
+        
+        if (!pageId) {
+            console.log('No page selected');
+            return;
+        }
         
         // Check if already in list
-        if ($('#excluded_pages_list').find(`[data-id="${pageId}"]`).length > 0) {
+        if (jQuery('#excluded_pages_list').find(`[data-id="${pageId}"]`).length > 0) {
+            console.log('Page already in excluded list');
             return;
         }
         
         // Add to visual list
         const itemHtml = `
-            <div class="excluded-page-item" data-id="${pageId}">
+            <div class="excluded-page-item excluded-page" data-id="${pageId}">
                 <span>${pageTitle}</span>
                 <button type="button" class="remove-excluded-page button">×</button>
             </div>
         `;
-        $('#excluded_pages_list').append(itemHtml);
+        jQuery('#excluded_pages_list').append(itemHtml);
+        console.log('Added page to excluded list');
         
         // Update hidden input
         updateExcludedIdsInput();
         
         // Reset dropdown
-        $('#page_to_exclude').val('');
+        jQuery('#page_to_exclude').val('');
     });
     
     // Remove excluded page
-    $(document).on('click', '.remove-excluded-page', function() {
-        $(this).closest('.excluded-page-item').remove();
+    jQuery(document).on('click', '.remove-excluded-page', function(e) {
+        e.preventDefault(); // Prevent any default action
+        console.log('Remove excluded page button clicked');
+        
+        // Remove the item from the list
+        const $item = jQuery(this).closest('.excluded-page-item, .excluded-page');
+        const pageId = $item.data('id');
+        console.log('Removing excluded page ID:', pageId);
+        
+        $item.remove();
+        
+        // Update the hidden input
         updateExcludedIdsInput();
     });
     
     // Update hidden input with excluded IDs
     function updateExcludedIdsInput() {
         const excludedIds = [];
-        $('.excluded-page-item').each(function() {
-            excludedIds.push($(this).data('id'));
+        jQuery('.excluded-page-item, .excluded-page').each(function() {
+            const id = jQuery(this).data('id');
+            if (id) {
+                excludedIds.push(id);
+                console.log('Adding excluded page ID:', id);
+            }
         });
-        $('#exclude_ids').val(excludedIds.join(','));
+        
+        const excludeIdsValue = excludedIds.join(',');
+        jQuery('#exclude_ids').val(excludeIdsValue);
+        console.log('Updated exclude_ids value:', excludeIdsValue);
     }
 
     // Generate and save shortcode
-    $('#aqm-sitemap-form').on('submit', function(e) {
+    jQuery('#aqm-sitemap-form').on('submit', function(e) {
         e.preventDefault();
         console.log('Form submitted');
         
-        const shortcodeName = $('#shortcode_name').val().trim();
+        const shortcodeName = jQuery('#shortcode_name').val().trim();
         const selectedFolders = [];
         
-        $('.folder-checklist input[type="checkbox"]:checked').each(function() {
-            selectedFolders.push($(this).val());
+        jQuery('.folder-checklist input[type="checkbox"]:checked').each(function() {
+            selectedFolders.push(jQuery(this).val());
         });
         
         if (selectedFolders.length === 0) {
@@ -120,33 +210,47 @@ jQuery(document).ready(function($) {
         }
         
         // Get all form field values
-        const displayType = $('#display_type').val();
-        const columns = $('#columns').val();
-        const order = $('#order').val();
-        const excludeIds = $('#exclude_ids').val();
+        const displayType = jQuery('#display_type').val();
+        const columns = jQuery('#columns').val();
+        const order = jQuery('#order').val();
+        const excludeIds = jQuery('#exclude_ids').val();
+        const debug = jQuery('#debug').val();
+        const useDivider = jQuery('#use_divider').val();
+        const divider = jQuery('#divider').val();
+        
+        // Log all form values for debugging
+        console.log('Form values:', {
+            displayType,
+            columns,
+            order,
+            excludeIds,
+            debug,
+            useDivider,
+            divider
+        });
         
         // Get the margin, icon, and icon color values directly from the form fields
         let itemMargin = '';
-        if ($('#item_margin').length) {
-            itemMargin = $('#item_margin').val();
+        if (jQuery('#item_margin').length) {
+            itemMargin = jQuery('#item_margin').val();
         }
         
         // Get icon value - ensure we're getting the actual value from the input field
         let icon = '';
-        if ($('#icon').length) {
-            icon = $('#icon').val();
+        if (jQuery('#icon').length) {
+            icon = jQuery('#icon').val();
             console.log('Retrieved icon value from field:', icon);
         }
         
         // Get icon_color value - ensure we're getting the actual value from the input field
         let iconColor = '';
-        if ($('#icon_color').length) {
-            iconColor = $('#icon_color').val();
+        if (jQuery('#icon_color').length) {
+            iconColor = jQuery('#icon_color').val();
             console.log('Retrieved icon_color value from field:', iconColor);
         }
         
-        const editMode = $('#edit_mode').val() === '1';
-        const originalName = $('#original_name').val();
+        const editMode = jQuery('#edit_mode').val() === '1';
+        const originalName = jQuery('#original_name').val();
         
         // Debug log all field values
         console.log('Form field values:', {
@@ -214,18 +318,32 @@ jQuery(document).ready(function($) {
         shortcode += ` icon_color="${iconColor}"`;
         console.log('Adding icon_color to shortcode regardless of value:', iconColor);
         
+        // Add the new parameters to the shortcode
+        shortcode += ` debug="${debug}"`;
+        
+        // Add divider parameters if display type is inline
+        if (displayType === 'inline') {
+            shortcode += ` use_divider="${useDivider}"`;
+            if (useDivider === 'yes') {
+                shortcode += ` divider="${divider}"`;
+            }
+        }
+        
         // Log the complete shortcode before closing it
         console.log('Shortcode before closing bracket:', shortcode);
         
-        
+        // Close the shortcode
         shortcode += `]`;
-
+        
         // Log the data being sent
         console.log('Sending shortcode data:', {
             name: shortcodeName,
             shortcode: shortcode,
             edit_mode: editMode ? '1' : '0',
-            original_name: originalName
+            original_name: originalName,
+            debug: debug,
+            use_divider: useDivider,
+            divider: divider
         });
 
         // Log the final shortcode being sent
@@ -246,7 +364,7 @@ jQuery(document).ready(function($) {
         
         console.log('Form data being sent:', formData);
         
-        $.ajax({
+        jQuery.ajax({
             url: aqmSitemaps.ajaxurl,
             type: 'POST',
             data: formData,
@@ -271,10 +389,10 @@ jQuery(document).ready(function($) {
     });
 
     // Edit shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.edit-shortcode', function() {
+    jQuery(document).on('click', '.edit-shortcode', function() {
         console.log('Edit button clicked');
         
-        const $button = $(this);
+        const $button = jQuery(this);
         const name = $button.data('name');
         const shortcode = $button.data('shortcode');
         
@@ -291,43 +409,15 @@ jQuery(document).ready(function($) {
             // Log the raw attributesString for debugging
             console.log('Raw attributes string:', attributesString);
             
-            // First, extract icon and icon_color directly with a more specific regex
-            // This handles the case where these attributes might have special characters
-            const iconMatch = attributesString.match(/icon=["']([^"']*)["']/);
-            if (iconMatch && iconMatch[1] !== undefined) {
-                attributes['icon'] = iconMatch[1];
-                console.log('Extracted icon directly:', iconMatch[1]);
+            // Extract all attributes with a regex
+            const attrRegex = /([\w_]+)=["']([^"']*)["']/g;
+            let match;
+            while ((match = attrRegex.exec(attributesString)) !== null) {
+                const key = match[1];
+                const value = match[2];
+                attributes[key] = value;
+                console.log(`Extracted attribute: ${key} = ${value}`);
             }
-            
-            const iconColorMatch = attributesString.match(/icon_color=["']([^"']*)["']/);
-            if (iconColorMatch && iconColorMatch[1] !== undefined) {
-                attributes['icon_color'] = iconColorMatch[1];
-                console.log('Extracted icon_color directly:', iconColorMatch[1]);
-            }
-            
-            // Match all other attributes, handling both single and double quotes
-            // Use a more robust regex that can handle all attribute formats
-            const matches = attributesString.match(/(\w+)=["']([^"']+)["']/g);
-            
-            if (matches) {
-                matches.forEach(match => {
-                    try {
-                        const [_, key, value] = match.match(/(\w+)=["']([^"']+)["']/);
-                        attributes[key] = value;
-                        console.log(`Parsed attribute: ${key} = ${value}`);
-                    } catch (e) {
-                        console.error('Error parsing attribute:', match, e);
-                    }
-                });
-            }
-            
-            // Ensure all expected attributes are present and log missing ones
-            const expectedAttributes = ['display_type', 'columns', 'order', 'item_margin', 'icon', 'icon_color'];
-            expectedAttributes.forEach(attr => {
-                if (attributes[attr] === undefined) {
-                    console.log(`Attribute ${attr} not found in shortcode`);
-                }
-            });
             
             // Log all found attributes
             console.log('All parsed attributes:', attributes);
@@ -337,8 +427,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        console.log('Parsed attributes:', attributes);
-        
         // Set default values if not present
         const defaultValues = {
             display_type: 'columns',
@@ -347,20 +435,21 @@ jQuery(document).ready(function($) {
             exclude_ids: '',
             item_margin: '10px',
             icon: '',
-            icon_color: ''
+            icon_color: '',
+            debug: 'no',
+            use_divider: 'yes',
+            divider: '|'
         };
 
         // Merge defaults with parsed attributes
-        // Make sure to only use defaults if the attribute is completely missing
         const finalAttributes = {};
         
         // First add all parsed attributes
         Object.keys(attributes).forEach(key => {
-            // Preserve empty strings as they are intentional values
             finalAttributes[key] = attributes[key];
         });
         
-        // Then add defaults only for missing keys (not for empty strings)
+        // Then add defaults only for missing keys
         Object.keys(defaultValues).forEach(key => {
             if (finalAttributes[key] === undefined) {
                 finalAttributes[key] = defaultValues[key];
@@ -368,19 +457,7 @@ jQuery(document).ready(function($) {
             }
         });
         
-        console.log('Final attributes after merging with defaults:', finalAttributes);
-        
-        // Helper function to update field with animation
-        function updateFieldWithAnimation($field, value) {
-            const $formGroup = $field.closest('.form-group');
-            $formGroup.css('z-index', '1'); // Ensure the "Updated" text shows above other fields
-            $field.val(value);
-            $field.addClass('highlight-edit');
-            setTimeout(() => {
-                $field.removeClass('highlight-edit');
-                $formGroup.css('z-index', ''); // Reset z-index
-            }, 2000);
-        }
+        console.log('Final attributes:', finalAttributes);
         
         // Check if we have folder data (either folder_slug or folder_slugs)
         if (finalAttributes.folder_slug || finalAttributes.folder_slugs) {
@@ -406,7 +483,7 @@ jQuery(document).ready(function($) {
                                 <button type="button" class="remove-excluded-page button">×</button>
                             </div>
                         `;
-                        $('#excluded_pages_list').append(itemHtml);
+                        jQuery('#excluded_pages_list').append(itemHtml);
                     }
                 });
                 
@@ -415,7 +492,7 @@ jQuery(document).ready(function($) {
             }
             
             // Uncheck all folder checkboxes first
-            $('.folder-checklist input[type="checkbox"]').prop('checked', false);
+            jQuery('.folder-checklist input[type="checkbox"]').prop('checked', false);
             
             // Check the appropriate folder checkboxes
             let folderSlugs = [];
@@ -429,66 +506,33 @@ jQuery(document).ready(function($) {
             
             // Check each folder checkbox that matches our slugs
             folderSlugs.forEach(slug => {
-                $(`#folder_${slug}`).prop('checked', true);
+                jQuery(`#folder_${slug}`).prop('checked', true);
             });
             
-            // Scroll to form first
-            $('html, body').animate({
-                scrollTop: $('#aqm-sitemap-form').offset().top - 50
-            }, 500, function() {
-                // After scrolling, update fields with staggered animations
-                updateFieldWithAnimation($('#shortcode_name'), name);
-                // Ensure we're using the actual values from the shortcode, not defaults
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#display_type'), finalAttributes.display_type);
-                    console.log('Set display_type to:', finalAttributes.display_type);
-                }, 300);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#columns'), finalAttributes.columns);
-                    console.log('Set columns to:', finalAttributes.columns);
-                }, 600);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#order'), finalAttributes.order);
-                    console.log('Set order to:', finalAttributes.order);
-                }, 900);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#item_margin'), finalAttributes.item_margin);
-                    console.log('Set item_margin to:', finalAttributes.item_margin);
-                }, 1200);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#icon'), finalAttributes.icon);
-                    console.log('Set icon to:', finalAttributes.icon);
-                }, 1500);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#icon_color'), finalAttributes.icon_color);
-                    console.log('Set icon_color to:', finalAttributes.icon_color);
-                }, 1800);
-                
-                // Log the values being set for each field
-                console.log('Setting field values:', {
-                    display_type: finalAttributes.display_type,
-                    columns: finalAttributes.columns,
-                    order: finalAttributes.order,
-                    item_margin: finalAttributes.item_margin,
-                    icon: finalAttributes.icon,
-                    icon_color: finalAttributes.icon_color
-                });
-            });
+            // Set form fields
+            jQuery('#shortcode_name').val(name);
+            jQuery('#display_type').val(finalAttributes.display_type);
+            jQuery('#columns').val(finalAttributes.columns);
+            jQuery('#order').val(finalAttributes.order);
+            jQuery('#item_margin').val(finalAttributes.item_margin);
+            jQuery('#icon').val(finalAttributes.icon);
+            jQuery('#icon_color').val(finalAttributes.icon_color);
             
-            // Show/hide columns field based on display type
-            if (finalAttributes.display_type === 'inline') {
-                $('.columns-option').hide();
-            } else {
-                $('.columns-option').show();
-            }
+            // Set the new fields
+            jQuery('#debug').val(finalAttributes.debug || 'no');
+            jQuery('#use_divider').val(finalAttributes.use_divider || 'yes');
+            jQuery('#divider').val(finalAttributes.divider || '|');
+            
+            // Trigger display type change to show/hide appropriate fields
+            jQuery('#display_type').trigger('change');
+            
+            // Scroll to form
+            jQuery('html, body').animate({
+                scrollTop: jQuery('#aqm-sitemap-form').offset().top - 50
+            }, 500);
             
             // Update form title and submit button
-            $('#submit_button').text('Save Changes');
+            jQuery('#submit_button').text('Save Changes');
             
             console.log('Form populated with values:', finalAttributes);
         } else {
@@ -498,67 +542,102 @@ jQuery(document).ready(function($) {
     });
 
     // Delete shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.delete-shortcode', function() {
-        if (!confirm('Are you sure you want to delete this shortcode?')) {
-            return;
-        }
+    jQuery(document).on('click', '.delete-shortcode', function() {
+    if (!confirm('Are you sure you want to delete this shortcode?')) {
+        return;
+    }
 
-        const name = $(this).data('name');
-        console.log('Deleting shortcode:', name);
+    const name = jQuery(this).data('name');
+    console.log('Deleting shortcode:', name);
 
-        $.ajax({
-            url: aqmSitemaps.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'aqm_delete_shortcode',
-                nonce: aqmSitemaps.nonce,
-                name: name
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert('Error deleting shortcode');
-                }
+    jQuery.ajax({
+        url: aqmSitemaps.ajaxurl,
+        type: 'POST',
+        data: {
+            action: 'aqm_delete_shortcode',
+            nonce: aqmSitemaps.nonce,
+            name: name
+        },
+        success: function(response) {
+            if (response.success) {
+                location.reload();
+            } else {
+                alert('Error deleting shortcode');
             }
-        });
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error('AJAX error:', {
+                status: jqXHR.status,
+                textStatus: textStatus,
+                errorThrown: errorThrown,
+                responseText: jqXHR.responseText
+            });
+            alert('Error deleting shortcode. Please try again. Error: ' + textStatus);
+        }
     });
+});
 
     // Copy shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.copy-shortcode', function() {
-        const shortcode = $(this).data('shortcode');
-        const $button = $(this);
+    jQuery(document).on('click', '.copy-shortcode', function() {
+        const shortcode = jQuery(this).data('shortcode');
+        const $button = jQuery(this);
         const originalText = $button.text();
         console.log('Copying shortcode:', shortcode);
 
+        // Use modern clipboard API if available, fallback to execCommand
+        if (navigator.clipboard && window.isSecureContext) {
+            // Modern approach - Clipboard API
+            navigator.clipboard.writeText(shortcode)
+                .then(() => {
+                    // Show success message
+                    $button.text('Copied!');
+                    setTimeout(() => {
+                        $button.text(originalText);
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy with Clipboard API:', err);
+                    fallbackCopyToClipboard(shortcode, $button, originalText);
+                });
+        } else {
+            // Fallback for older browsers
+            fallbackCopyToClipboard(shortcode, $button, originalText);
+        }
+    });
+
+    // Fallback copy function for browsers that don't support Clipboard API
+    function fallbackCopyToClipboard(text, $button, originalText) {
         // Create a temporary textarea
-        const $temp = $('<textarea>');
-        $('body').append($temp);
-        $temp.val(shortcode).select();
+        const $temp = jQuery('<textarea>');
+        jQuery('body').append($temp);
+        $temp.val(text).select();
 
         try {
             // Copy the text
-            document.execCommand('copy');
+            const successful = document.execCommand('copy');
             // Show success message
-            $button.text('Copied!');
-            setTimeout(() => {
-                $button.text(originalText);
-            }, 2000);
+            if (successful) {
+                $button.text('Copied!');
+            } else {
+                $button.text('Failed to copy');
+            }
         } catch (err) {
-            console.error('Failed to copy:', err);
+            console.error('Failed to copy with execCommand:', err);
             $button.text('Failed to copy');
-            setTimeout(() => {
-                $button.text(originalText);
-            }, 2000);
         }
 
         // Remove the temporary textarea
         $temp.remove();
-    });
+        
+        // Reset button text after delay
+        setTimeout(() => {
+            $button.text(originalText);
+        }, 2000);
+    }
 
     // Theme Toggle
-    const themeSwitch = $('#theme-switch');
-    const body = $('body');
+    const themeSwitch = jQuery('#theme-switch');
+    const body = jQuery('body');
     
     // Check for saved theme preference
     const savedTheme = localStorage.getItem('aqm-theme');
@@ -569,7 +648,7 @@ jQuery(document).ready(function($) {
     
     // Handle theme toggle
     themeSwitch.on('change', function() {
-        if ($(this).is(':checked')) {
+        if (jQuery(this).is(':checked')) {
             body.attr('data-theme', 'dark');
             localStorage.setItem('aqm-theme', 'dark');
         } else {
