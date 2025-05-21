@@ -51,6 +51,12 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 2.2.2
+- Fixed issue with shortcode creation process that was causing session timeouts
+- Changed form submission method from AJAX to traditional form submission to avoid session issues
+- Added better error handling and success notifications for shortcode creation
+- Improved logging for troubleshooting authentication issues
+
 ### 1.0.12
 - Test version for GitHub updater functionality
 - No functional changes from 1.0.11
