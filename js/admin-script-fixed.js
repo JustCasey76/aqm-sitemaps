@@ -1,14 +1,21 @@
+/**
+ * AQM Sitemaps Admin JavaScript
+ * Handles all admin functionality for the AQM Sitemaps plugin
+ * Version: 2.2.1
+ * Last updated: 2025-05-16
+ */
+
 jQuery(document).ready(function($) {
-    console.log('AQM Sitemaps script loaded'); // Debug log
+    console.log('AQM Sitemaps script loaded - Fixed version'); // Debug log with version marker
 
     // Function to reset form to create mode
     function resetToCreateMode() {
         $('#edit_mode').val('0');
         $('#original_name').val('');
         $('#shortcode_name').val('');
-        $('.aqm-sitemaps-generator h2').text('Create New Sitemap');
+        $('.aqm-sitemap-generator h2').text('Create New Sitemap');
         $('#submit_button').text('Generate Shortcode');
-        $('#aqm-sitemaps-form')[0].reset();
+        $('#aqm-sitemap-form')[0].reset();
     }
 
     // Auto-fill shortcode name when folder checkboxes change
@@ -44,15 +51,71 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Toggle columns field visibility based on display type
+    // Toggle fields visibility based on display type
     $('#display_type').on('change', function() {
         const displayType = $(this).val();
         if (displayType === 'inline') {
             $('.columns-option').hide();
+            $('.inline-options').show();
+            // Check if divider is enabled
+            toggleDividerOptions();
         } else {
             $('.columns-option').show();
+            $('.inline-options').hide();
+            $('.divider-options').hide();
         }
     });
+    
+    // Toggle divider options based on use_divider selection
+    $('#use_divider').on('change', function() {
+        toggleDividerOptions();
+    });
+    
+    // Function to toggle divider options visibility
+    function toggleDividerOptions() {
+        if ($('#display_type').val() === 'inline' && $('#use_divider').val() === 'yes') {
+            $('.divider-options').show();
+        } else {
+            $('.divider-options').hide();
+        }
+    }
+    
+    // Initialize visibility on page load
+    function initializeFieldVisibility() {
+        console.log('Initializing field visibility');
+        const displayType = $('#display_type').val();
+        console.log('Current display type:', displayType);
+        
+        if (displayType === 'inline') {
+            console.log('Setting up inline display options');
+            $('.columns-option').hide();
+            $('.inline-options').show();
+            
+            // Check use_divider value and show/hide divider options accordingly
+            const useDivider = $('#use_divider').val();
+            console.log('Use divider value:', useDivider);
+            
+            if (useDivider === 'yes') {
+                $('.divider-options').show();
+            } else {
+                $('.divider-options').hide();
+            }
+        } else {
+            console.log('Setting up columns display options');
+            $('.columns-option').show();
+            $('.inline-options').hide();
+            $('.divider-options').hide();
+        }
+    }
+    
+    // Call initialization function immediately
+    initializeFieldVisibility();
+    
+    // Also call it after a short delay to ensure DOM is fully loaded
+    setTimeout(function() {
+        console.log('Running delayed initialization');
+        initializeFieldVisibility();
+    }, 500);
 
     // Handle excluded pages
     $('#add_excluded_page').on('click', function() {
@@ -124,6 +187,20 @@ jQuery(document).ready(function($) {
         const columns = $('#columns').val();
         const order = $('#order').val();
         const excludeIds = $('#exclude_ids').val();
+        const debug = $('#debug').val();
+        const useDivider = $('#use_divider').val();
+        const divider = $('#divider').val();
+        
+        // Log all form values for debugging
+        console.log('Form values:', {
+            displayType,
+            columns,
+            order,
+            excludeIds,
+            debug,
+            useDivider,
+            divider
+        });
         
         // Get the margin, icon, and icon color values directly from the form fields
         let itemMargin = '';
@@ -192,34 +269,25 @@ jQuery(document).ready(function($) {
         // Process item_margin - use default only if completely empty
         const marginValue = (itemMargin && itemMargin.trim() !== '') ? itemMargin.trim() : '10px';
         shortcode += ` item_margin="${marginValue}"`;
-        console.log('Using margin value in shortcode:', marginValue);
         
-        // Always add icon parameter regardless of value
-        console.log('Icon value before processing:', icon);
-        // Always include the icon parameter even if empty
-        shortcode += ` icon="${icon ? icon.trim() : ''}"`;
-        console.log('Adding icon to shortcode:', icon ? icon.trim() : '');
-        
-        // Always add icon_color parameter regardless of value
-        console.log('Icon color value before processing:', iconColor);
-        // Always include the icon_color parameter even if empty
-        shortcode += ` icon_color="${iconColor ? iconColor.trim() : ''}"`;
-        console.log('Adding icon_color to shortcode:', iconColor ? iconColor.trim() : '');
-        
-        // Always include icon and icon_color values from the form fields
-        // This ensures they're included in the shortcode regardless of their value
+        // Always include the icon and icon_color values from the form fields
         shortcode += ` icon="${icon}"`;
-        console.log('Adding icon to shortcode regardless of value:', icon);
-        
         shortcode += ` icon_color="${iconColor}"`;
-        console.log('Adding icon_color to shortcode regardless of value:', iconColor);
         
-        // Log the complete shortcode before closing it
-        console.log('Shortcode before closing bracket:', shortcode);
+        // Add the new parameters to the shortcode
+        shortcode += ` debug="${debug}"`;
         
+        // Add divider parameters if display type is inline
+        if (displayType === 'inline') {
+            shortcode += ` use_divider="${useDivider}"`;
+            if (useDivider === 'yes') {
+                shortcode += ` divider="${divider}"`;
+            }
+        }
         
+        // Close the shortcode
         shortcode += `]`;
-
+        
         // Log the data being sent
         console.log('Sending shortcode data:', {
             name: shortcodeName,
@@ -227,9 +295,6 @@ jQuery(document).ready(function($) {
             edit_mode: editMode ? '1' : '0',
             original_name: originalName
         });
-
-        // Log the final shortcode being sent
-        console.log('Final shortcode being sent to server:', shortcode);
         
         // Add form field values to the data object for debugging
         const formData = {
@@ -270,8 +335,38 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Edit shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.edit-shortcode', function() {
+    // COPY SHORTCODE BUTTON
+    // Using direct event binding for better reliability
+    $('.copy-shortcode').on('click', function() {
+        const shortcode = $(this).data('shortcode');
+        const $button = $(this);
+        const originalText = $button.text();
+        console.log('Copy button clicked. Copying shortcode:', shortcode);
+
+        // Use modern clipboard API if available, fallback to execCommand
+        if (navigator.clipboard && window.isSecureContext) {
+            // Modern approach - Clipboard API
+            navigator.clipboard.writeText(shortcode)
+                .then(() => {
+                    // Show success message
+                    $button.text('Copied!');
+                    setTimeout(() => {
+                        $button.text(originalText);
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy with Clipboard API:', err);
+                    fallbackCopyToClipboard(shortcode, $button, originalText);
+                });
+        } else {
+            // Fallback for older browsers
+            fallbackCopyToClipboard(shortcode, $button, originalText);
+        }
+    });
+
+    // EDIT SHORTCODE BUTTON
+    // Using direct event binding for better reliability
+    $('.edit-shortcode').on('click', function() {
         console.log('Edit button clicked');
         
         const $button = $(this);
@@ -291,43 +386,15 @@ jQuery(document).ready(function($) {
             // Log the raw attributesString for debugging
             console.log('Raw attributes string:', attributesString);
             
-            // First, extract icon and icon_color directly with a more specific regex
-            // This handles the case where these attributes might have special characters
-            const iconMatch = attributesString.match(/icon=["']([^"']*)["']/);
-            if (iconMatch && iconMatch[1] !== undefined) {
-                attributes['icon'] = iconMatch[1];
-                console.log('Extracted icon directly:', iconMatch[1]);
+            // Extract all attributes with a regex
+            const attrRegex = /([\w_]+)=["']([^"']*)["']/g;
+            let match;
+            while ((match = attrRegex.exec(attributesString)) !== null) {
+                const key = match[1];
+                const value = match[2];
+                attributes[key] = value;
+                console.log(`Extracted attribute: ${key} = ${value}`);
             }
-            
-            const iconColorMatch = attributesString.match(/icon_color=["']([^"']*)["']/);
-            if (iconColorMatch && iconColorMatch[1] !== undefined) {
-                attributes['icon_color'] = iconColorMatch[1];
-                console.log('Extracted icon_color directly:', iconColorMatch[1]);
-            }
-            
-            // Match all other attributes, handling both single and double quotes
-            // Use a more robust regex that can handle all attribute formats
-            const matches = attributesString.match(/(\w+)=["']([^"']+)["']/g);
-            
-            if (matches) {
-                matches.forEach(match => {
-                    try {
-                        const [_, key, value] = match.match(/(\w+)=["']([^"']+)["']/);
-                        attributes[key] = value;
-                        console.log(`Parsed attribute: ${key} = ${value}`);
-                    } catch (e) {
-                        console.error('Error parsing attribute:', match, e);
-                    }
-                });
-            }
-            
-            // Ensure all expected attributes are present and log missing ones
-            const expectedAttributes = ['display_type', 'columns', 'order', 'item_margin', 'icon', 'icon_color'];
-            expectedAttributes.forEach(attr => {
-                if (attributes[attr] === undefined) {
-                    console.log(`Attribute ${attr} not found in shortcode`);
-                }
-            });
             
             // Log all found attributes
             console.log('All parsed attributes:', attributes);
@@ -337,8 +404,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        console.log('Parsed attributes:', attributes);
-        
         // Set default values if not present
         const defaultValues = {
             display_type: 'columns',
@@ -347,20 +412,21 @@ jQuery(document).ready(function($) {
             exclude_ids: '',
             item_margin: '10px',
             icon: '',
-            icon_color: ''
+            icon_color: '',
+            debug: 'no',
+            use_divider: 'yes',
+            divider: '|'
         };
 
         // Merge defaults with parsed attributes
-        // Make sure to only use defaults if the attribute is completely missing
         const finalAttributes = {};
         
         // First add all parsed attributes
         Object.keys(attributes).forEach(key => {
-            // Preserve empty strings as they are intentional values
             finalAttributes[key] = attributes[key];
         });
         
-        // Then add defaults only for missing keys (not for empty strings)
+        // Then add defaults only for missing keys
         Object.keys(defaultValues).forEach(key => {
             if (finalAttributes[key] === undefined) {
                 finalAttributes[key] = defaultValues[key];
@@ -368,19 +434,7 @@ jQuery(document).ready(function($) {
             }
         });
         
-        console.log('Final attributes after merging with defaults:', finalAttributes);
-        
-        // Helper function to update field with animation
-        function updateFieldWithAnimation($field, value) {
-            const $formGroup = $field.closest('.form-group');
-            $formGroup.css('z-index', '1'); // Ensure the "Updated" text shows above other fields
-            $field.val(value);
-            $field.addClass('highlight-edit');
-            setTimeout(() => {
-                $field.removeClass('highlight-edit');
-                $formGroup.css('z-index', ''); // Reset z-index
-            }, 2000);
-        }
+        console.log('Final attributes:', finalAttributes);
         
         // Check if we have folder data (either folder_slug or folder_slugs)
         if (finalAttributes.folder_slug || finalAttributes.folder_slugs) {
@@ -432,60 +486,27 @@ jQuery(document).ready(function($) {
                 $(`#folder_${slug}`).prop('checked', true);
             });
             
-            // Scroll to form first
+            // Set form fields
+            $('#shortcode_name').val(name);
+            $('#display_type').val(finalAttributes.display_type);
+            $('#columns').val(finalAttributes.columns);
+            $('#order').val(finalAttributes.order);
+            $('#item_margin').val(finalAttributes.item_margin);
+            $('#icon').val(finalAttributes.icon);
+            $('#icon_color').val(finalAttributes.icon_color);
+            
+            // Set the new fields
+            $('#debug').val(finalAttributes.debug || 'no');
+            $('#use_divider').val(finalAttributes.use_divider || 'yes');
+            $('#divider').val(finalAttributes.divider || '|');
+            
+            // Trigger display type change to show/hide appropriate fields
+            $('#display_type').trigger('change');
+            
+            // Scroll to form
             $('html, body').animate({
                 scrollTop: $('#aqm-sitemap-form').offset().top - 50
-            }, 500, function() {
-                // After scrolling, update fields with staggered animations
-                updateFieldWithAnimation($('#shortcode_name'), name);
-                // Ensure we're using the actual values from the shortcode, not defaults
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#display_type'), finalAttributes.display_type);
-                    console.log('Set display_type to:', finalAttributes.display_type);
-                }, 300);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#columns'), finalAttributes.columns);
-                    console.log('Set columns to:', finalAttributes.columns);
-                }, 600);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#order'), finalAttributes.order);
-                    console.log('Set order to:', finalAttributes.order);
-                }, 900);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#item_margin'), finalAttributes.item_margin);
-                    console.log('Set item_margin to:', finalAttributes.item_margin);
-                }, 1200);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#icon'), finalAttributes.icon);
-                    console.log('Set icon to:', finalAttributes.icon);
-                }, 1500);
-                
-                setTimeout(() => {
-                    updateFieldWithAnimation($('#icon_color'), finalAttributes.icon_color);
-                    console.log('Set icon_color to:', finalAttributes.icon_color);
-                }, 1800);
-                
-                // Log the values being set for each field
-                console.log('Setting field values:', {
-                    display_type: finalAttributes.display_type,
-                    columns: finalAttributes.columns,
-                    order: finalAttributes.order,
-                    item_margin: finalAttributes.item_margin,
-                    icon: finalAttributes.icon,
-                    icon_color: finalAttributes.icon_color
-                });
-            });
-            
-            // Show/hide columns field based on display type
-            if (finalAttributes.display_type === 'inline') {
-                $('.columns-option').hide();
-            } else {
-                $('.columns-option').show();
-            }
+            }, 500);
             
             // Update form title and submit button
             $('#submit_button').text('Save Changes');
@@ -497,14 +518,15 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Delete shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.delete-shortcode', function() {
+    // DELETE SHORTCODE BUTTON
+    // Using direct event binding for better reliability
+    $('.delete-shortcode').on('click', function() {
         if (!confirm('Are you sure you want to delete this shortcode?')) {
             return;
         }
 
         const name = $(this).data('name');
-        console.log('Deleting shortcode:', name);
+        console.log('Delete button clicked. Deleting shortcode:', name);
 
         $.ajax({
             url: aqmSitemaps.ajaxurl,
@@ -515,46 +537,54 @@ jQuery(document).ready(function($) {
                 name: name
             },
             success: function(response) {
+                console.log('Delete response:', response);
                 if (response.success) {
                     location.reload();
                 } else {
                     alert('Error deleting shortcode');
                 }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('AJAX error:', {
+                    status: jqXHR.status,
+                    textStatus: textStatus,
+                    errorThrown: errorThrown,
+                    responseText: jqXHR.responseText
+                });
+                alert('Error deleting shortcode. Please try again. Error: ' + textStatus);
             }
         });
     });
 
-    // Copy shortcode - use document delegation to handle dynamically added elements
-    $(document).on('click', '.copy-shortcode', function() {
-        const shortcode = $(this).data('shortcode');
-        const $button = $(this);
-        const originalText = $button.text();
-        console.log('Copying shortcode:', shortcode);
-
+    // Fallback copy function for browsers that don't support Clipboard API
+    function fallbackCopyToClipboard(text, $button, originalText) {
         // Create a temporary textarea
         const $temp = $('<textarea>');
         $('body').append($temp);
-        $temp.val(shortcode).select();
+        $temp.val(text).select();
 
         try {
             // Copy the text
-            document.execCommand('copy');
+            const successful = document.execCommand('copy');
             // Show success message
-            $button.text('Copied!');
-            setTimeout(() => {
-                $button.text(originalText);
-            }, 2000);
+            if (successful) {
+                $button.text('Copied!');
+            } else {
+                $button.text('Failed to copy');
+            }
         } catch (err) {
-            console.error('Failed to copy:', err);
+            console.error('Failed to copy with execCommand:', err);
             $button.text('Failed to copy');
-            setTimeout(() => {
-                $button.text(originalText);
-            }, 2000);
         }
 
         // Remove the temporary textarea
         $temp.remove();
-    });
+        
+        // Reset button text after delay
+        setTimeout(() => {
+            $button.text(originalText);
+        }, 2000);
+    }
 
     // Theme Toggle
     const themeSwitch = $('#theme-switch');
