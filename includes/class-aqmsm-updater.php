@@ -89,6 +89,12 @@ class AQMSM_Updater {
         add_filter('upgrader_source_selection', array($this, 'fix_directory_name'), 10, 4);
         add_action('admin_init', array($this, 'maybe_reactivate_plugin'));
 
+        // Initialize the updater
+        $this->init();
+        
+        // Clear update cache to force a fresh check
+        $this->clear_update_cache();
+        
         // Log initialization
         error_log('=========================================================');
         error_log('[AQMSM UPDATER] Initialized for ' . $this->repository);
@@ -111,7 +117,11 @@ class AQMSM_Updater {
         $update_data = $this->get_github_update_data();
 
         // If update data is available and version is newer, add to transient
-        if ($update_data && version_compare($this->plugin_data['Version'], $update_data->tag_name, '<')) {
+        // Clean the tag name by removing the 'v' prefix if it exists
+        $latest_version = ltrim($update_data->tag_name, 'v');
+        error_log('[AQMSM UPDATER] Comparing versions - Current: ' . $this->plugin_data['Version'] . ', Latest: ' . $latest_version);
+        
+        if ($update_data && version_compare($this->plugin_data['Version'], $latest_version, '<')) {
             error_log('[AQMSM UPDATER] New version available: ' . $update_data->tag_name);
 
             // Create the plugin info object
@@ -140,6 +150,18 @@ class AQMSM_Updater {
      * @param bool $force_check Force check instead of using cached data
      * @return object|bool GitHub release data or false on failure
      */
+    /**
+     * Clear update cache
+     * 
+     * Clears the cached update data to force a fresh check
+     */
+    public function clear_update_cache() {
+        $cache_key = 'aqmsm_github_data_' . md5($this->username . $this->repository);
+        delete_transient($cache_key);
+        delete_site_transient('update_plugins');
+        error_log('[AQMSM UPDATER] Update cache cleared');
+    }
+    
     private function get_github_update_data($force_check = false) {
         // Check cache first
         $cache_key = 'aqmsm_github_data_' . md5($this->username . $this->repository);
