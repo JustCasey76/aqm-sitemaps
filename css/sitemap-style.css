@@ -1,0 +1,67 @@
+.et-db #et-boc .et-l .et_pb_post .sitemap-inline,
+.sitemap-inline {
+    margin: 1em 0 !important;
+    list-style: none !important;
+    padding: 0 !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-inline li,
+.sitemap-inline li {
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-inline li:not(:last-child)::after,
+.sitemap-inline li:not(:last-child)::after {
+    content: " | ";
+    margin: 0 5px !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-inline a,
+.sitemap-inline a {
+    text-decoration: none !important;
+    color: #333 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-inline a:hover,
+.sitemap-inline a:hover {
+    text-decoration: underline !important;
+}
+
+/* Column styles */
+.et-db #et-boc .et-l .et_pb_post .sitemap-columns,
+.sitemap-columns {
+    margin: 1em 0 !important;
+    list-style: none !important;
+    padding: 0 !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-columns li,
+.sitemap-columns li {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-columns a,
+.sitemap-columns a {
+    text-decoration: none !important;
+    color: #333 !important;
+    display: block !important;
+    padding: 8px 0 !important;
+    font-size: 15px !important;
+    line-height: 1.8 !important;
+    margin: 0 !important;
+}
+
+.et-db #et-boc .et-l .et_pb_post .sitemap-columns a:hover,
+.sitemap-columns a:hover {
+    text-decoration: underline !important;
+    color: #0073aa !important;
+    opacity: 1 !important;
+}
