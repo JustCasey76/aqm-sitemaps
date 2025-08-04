@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 3.0.2
+ * Version: 3.0.4
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '3.0.2');
+define('AQM_SITEMAPS_VERSION', '3.0.4');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -32,20 +32,22 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-aqmsm-updater.php';
 function aqm_sitemaps_init_github_updater() {
     // Log that we're initializing the updater
     error_log('=========================================================');
-    error_log('[AQM SITEMAPS v' . AQM_SITEMAPS_VERSION . '] USING CUSTOM UPDATER CLASS');
+    error_log('[AQM SITEMAPS v' . AQM_SITEMAPS_VERSION . '] INITIALIZING GITHUB UPDATER');
     error_log('=========================================================');
     
-    if (class_exists('AQMSM_Updater')) {
+    if (class_exists('AQM_Sitemaps\Updater\GitHub_Updater')) {
         try {
-            new AQMSM_Updater(
+            new AQM_Sitemaps\Updater\GitHub_Updater(
                 __FILE__,                // Plugin File
                 'JustCasey76',           // GitHub username
-                'aqm-sitemaps',          // GitHub repository name
-                ''                       // Optional GitHub access token (for private repos)
+                'aqm-sitemaps'           // GitHub repository name
             );
             
             // Set last update check time
             update_option('aqm_sitemaps_last_update_check', time());
+            
+            // Check if we need to reactivate the plugin after an update
+            aqm_sitemaps_check_reactivation();
         } catch (Exception $e) {
             error_log('[AQM SITEMAPS] Error initializing updater: ' . $e->getMessage());
         }
