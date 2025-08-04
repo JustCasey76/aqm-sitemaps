@@ -51,6 +51,17 @@ The plugin includes an automatic update system that checks for new versions from
 
 ## Changelog
 
+### 3.0.5
+- Fixed duplicate "Check for Updates" links in plugin admin
+- Improved GitHub updater initialization
+- Removed legacy updater code
+
+### 3.0.4
+- Added "Exclude Current Page" option to sitemap shortcode and UI
+- Fixed GitHub updater to properly reactivate plugin after updates
+- Improved update success notification
+- Enhanced documentation with comprehensive shortcode parameters table
+
 ### 1.0.12
 - Test version for GitHub updater functionality
 - No functional changes from 1.0.11
