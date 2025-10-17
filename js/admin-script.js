@@ -12,7 +12,8 @@ jQuery(document).ready(function($) {
     }
 
     // Auto-fill shortcode name when folder checkboxes change
-    $('.folder-checklist input[type="checkbox"]').on('change', function() {
+    // Use event delegation to handle dynamically added checkboxes
+    $(document).on('change', '.folder-checklist input[type="checkbox"]', function() {
         // Only auto-fill if not in edit mode and shortcode name is empty
         if ($('#edit_mode').val() !== '1' && !$('#shortcode_name').val().trim()) {
             console.log('Folder selection changed'); // Debug log
@@ -202,8 +203,17 @@ jQuery(document).ready(function($) {
             selectedFolders.push($(this).val());
         });
         
-        if (selectedFolders.length === 0) {
+        // Check if there are any folder checkboxes available
+        const hasFolderCheckboxes = $('.folder-checklist input[type="checkbox"]').length > 0;
+        
+        if (hasFolderCheckboxes && selectedFolders.length === 0) {
             alert('Please select at least one folder');
+            return;
+        }
+        
+        // If no folders are available for this post type, we can't proceed
+        if (!hasFolderCheckboxes) {
+            alert('No folders are available for the selected post type. Please create folders for this post type first, or use a different post type.');
             return;
         }
         
