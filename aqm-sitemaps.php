@@ -462,20 +462,7 @@ function aqm_sitemaps_page() {
                                 <div class="form-group">
                                     <label>Select Folders:</label>
                                     <div class="folder-checklist">
-                                        <?php foreach ($folders as $folder): ?>
-                                            <?php 
-                                            $folder_name = esc_html($folder->name);
-                                            $folder_name = str_replace('-', ' ', $folder_name);
-                                            $folder_name = ucwords($folder_name);
-                                            ?>
-                                            <div class="folder-checkbox-item">
-                                                <input type="checkbox" 
-                                                       id="folder_<?php echo esc_attr($folder->slug); ?>" 
-                                                       name="folder[]" 
-                                                       value="<?php echo esc_attr($folder->slug); ?>">
-                                                <label for="folder_<?php echo esc_attr($folder->slug); ?>"><?php echo $folder_name; ?></label>
-                                            </div>
-                                        <?php endforeach; ?>
+                                        <p style="color:#666;font-style:italic;">Loading folders...</p>
                                     </div>
                                 </div>
 

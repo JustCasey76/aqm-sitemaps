@@ -10,6 +10,11 @@ jQuery(document).ready(function($) {
         $('#submit_button').text('Generate Shortcode');
         $('#aqm-sitemaps-form')[0].reset();
     }
+    
+    // Load folders for the default post type on page load
+    if ($('#post_type').length) {
+        $('#post_type').trigger('change');
+    }
 
     // Auto-fill shortcode name when folder checkboxes change
     // Use event delegation to handle dynamically added checkboxes
