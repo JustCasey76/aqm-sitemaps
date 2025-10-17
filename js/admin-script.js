@@ -64,7 +64,7 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Update exclusion dropdown when post type changes
+    // Update exclusion dropdown and folders when post type changes
     $('#post_type').on('change', function() {
         const postType = $(this).val();
         console.log('Post type changed to:', postType);
@@ -72,6 +72,50 @@ jQuery(document).ready(function($) {
         // Clear excluded items list
         $('#excluded_pages_list').empty();
         $('#exclude_ids').val('');
+        
+        // Clear folder selections
+        $('.folder-checklist input[type="checkbox"]').prop('checked', false);
+        
+        // Load folders for the selected post type
+        $.ajax({
+            url: aqmSitemaps.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'aqm_get_folders_by_post_type',
+                nonce: aqmSitemaps.nonce,
+                post_type: postType
+            },
+            success: function(response) {
+                if (response.success) {
+                    const $folderList = $('.folder-checklist');
+                    $folderList.empty();
+                    
+                    if (response.data.length === 0) {
+                        $folderList.append('<p style="color:#666;font-style:italic;">No folders found for this post type</p>');
+                    } else {
+                        response.data.forEach(function(folder) {
+                            const checkboxHtml = `
+                                <div class="folder-checkbox-item">
+                                    <input type="checkbox" 
+                                           id="folder_${folder.slug}" 
+                                           name="folder[]" 
+                                           value="${folder.slug}">
+                                    <label for="folder_${folder.slug}">${folder.name}</label>
+                                </div>
+                            `;
+                            $folderList.append(checkboxHtml);
+                        });
+                        
+                        console.log('Loaded', response.data.length, 'folders for type:', postType);
+                    }
+                } else {
+                    console.error('Error loading folders:', response.data);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('AJAX error loading folders:', textStatus);
+            }
+        });
         
         // Load posts of the selected type
         $.ajax({

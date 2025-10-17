@@ -878,6 +878,65 @@ function aqm_get_posts_by_type() {
 }
 add_action('wp_ajax_aqm_get_posts_by_type', 'aqm_get_posts_by_type');
 
+// Get folders that contain posts of a specific post type
+function aqm_get_folders_by_post_type() {
+    if (!check_ajax_referer('aqm_sitemaps_nonce', 'nonce', false)) {
+        wp_send_json_error('Invalid nonce');
+    }
+
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+
+    $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'page';
+    
+    // Validate post type
+    $valid_post_types = get_post_types(array('public' => true), 'names');
+    if (!in_array($post_type, $valid_post_types)) {
+        wp_send_json_error('Invalid post type');
+    }
+    
+    // Get all folders
+    $all_folders = get_terms(array(
+        'taxonomy' => 'folder',
+        'hide_empty' => false,
+    ));
+    
+    $folders_with_posts = array();
+    
+    if (!empty($all_folders) && !is_wp_error($all_folders)) {
+        foreach ($all_folders as $folder) {
+            // Get posts of this type in this folder
+            $posts_in_folder = get_posts(array(
+                'post_type' => $post_type,
+                'post_status' => 'publish',
+                'posts_per_page' => 1, // Just check if any exist
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'folder',
+                        'field' => 'term_id',
+                        'terms' => $folder->term_id,
+                    ),
+                ),
+            ));
+            
+            // If this folder has posts of this type, include it
+            if (!empty($posts_in_folder)) {
+                $folder_name = str_replace('-', ' ', $folder->name);
+                $folder_name = ucwords($folder_name);
+                
+                $folders_with_posts[] = array(
+                    'slug' => $folder->slug,
+                    'name' => $folder_name
+                );
+            }
+        }
+    }
+    
+    wp_send_json_success($folders_with_posts);
+}
+add_action('wp_ajax_aqm_get_folders_by_post_type', 'aqm_get_folders_by_post_type');
+
 
 
 // Helper function to build ORDER BY clause
