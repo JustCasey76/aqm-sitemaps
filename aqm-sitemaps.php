@@ -883,83 +883,81 @@ function aqm_get_folders_by_post_type() {
         wp_send_json_error('Invalid post type');
     }
     
-    // Check if folder taxonomy is registered for this post type
-    $taxonomies = get_object_taxonomies($post_type);
-    $has_folder_taxonomy = in_array('folder', $taxonomies);
-    
-    // Premio Folders might use a custom structure, so let's also check if any folders exist
-    // by looking at the terms directly
-    $all_folders = get_terms(array(
-        'taxonomy' => 'folder',
-        'hide_empty' => false,
-    ));
-    
-    // If taxonomy not registered but folders exist, Premio Folders might be using custom logic
-    // Let's try to get posts anyway
-    if (!$has_folder_taxonomy && (empty($all_folders) || is_wp_error($all_folders))) {
-        wp_send_json_success(array(
-            'folders' => array(),
-            'has_taxonomy' => false,
-            'message' => 'The Folders plugin is not enabled for this post type. Please enable it in Premio Folders settings.',
-            'debug' => array(
-                'post_type' => $post_type,
-                'taxonomies' => $taxonomies,
-                'has_folders' => !empty($all_folders)
-            )
-        ));
-        return;
-    }
-    
-    // Get all folders
-    $all_folders = get_terms(array(
-        'taxonomy' => 'folder',
-        'hide_empty' => false,
-    ));
-    
     $folders_with_posts = array();
     
-    if (!empty($all_folders) && !is_wp_error($all_folders)) {
-        foreach ($all_folders as $folder) {
-            // Try to get posts of this type in this folder
-            // Even if taxonomy not officially registered, try the query
-            $args = array(
-                'post_type' => $post_type,
-                'post_status' => 'publish',
-                'posts_per_page' => 1, // Just check if any exist
-                'fields' => 'ids', // Only get IDs for performance
-                'suppress_filters' => false, // Allow Premio Folders to filter
-            );
-            
-            // Try tax_query approach
-            $args['tax_query'] = array(
-                array(
-                    'taxonomy' => 'folder',
-                    'field' => 'term_id',
-                    'terms' => $folder->term_id,
-                ),
-            );
-            
-            $posts_in_folder = get_posts($args);
-            
-            // If this folder has posts of this type, include it
-            if (!empty($posts_in_folder)) {
-                $folder_name = str_replace('-', ' ', $folder->name);
-                $folder_name = ucwords($folder_name);
-                
-                $folders_with_posts[] = array(
-                    'slug' => $folder->slug,
-                    'name' => $folder_name,
-                    'count' => count($posts_in_folder),
-                    'term_id' => $folder->term_id
+    // Premio Folders stores data in 'folders_settings' option as JSON
+    $premio_folders_json = get_option('folders_settings', '');
+    
+    if (!empty($premio_folders_json)) {
+        $premio_folders = json_decode($premio_folders_json, true);
+        
+        if (is_array($premio_folders)) {
+            foreach ($premio_folders as $folder_data) {
+                if (isset($folder_data['post_type']) && $folder_data['post_type'] === $post_type) {
+                    // Found folders for this post type
+                    if (isset($folder_data['folders']) && is_array($folder_data['folders'])) {
+                        foreach ($folder_data['folders'] as $folder) {
+                            if (isset($folder['name'])) {
+                                // Create a slug from the name
+                                $slug = sanitize_title($folder['name']);
+                                
+                                $folders_with_posts[] = array(
+                                    'slug' => $slug,
+                                    'name' => $folder['name'],
+                                    'premio_folder' => true
+                                );
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    // If no Premio Folders found, fall back to standard taxonomy approach
+    if (empty($folders_with_posts)) {
+        $all_folders = get_terms(array(
+            'taxonomy' => 'folder',
+            'hide_empty' => false,
+        ));
+        
+        if (!empty($all_folders) && !is_wp_error($all_folders)) {
+            foreach ($all_folders as $folder) {
+                $args = array(
+                    'post_type' => $post_type,
+                    'post_status' => 'publish',
+                    'posts_per_page' => 1,
+                    'fields' => 'ids',
+                    'tax_query' => array(
+                        array(
+                            'taxonomy' => 'folder',
+                            'field' => 'term_id',
+                            'terms' => $folder->term_id,
+                        ),
+                    ),
                 );
+                
+                $posts_in_folder = get_posts($args);
+                
+                if (!empty($posts_in_folder)) {
+                    $folder_name = str_replace('-', ' ', $folder->name);
+                    $folder_name = ucwords($folder_name);
+                    
+                    $folders_with_posts[] = array(
+                        'slug' => $folder->slug,
+                        'name' => $folder_name,
+                        'term_id' => $folder->term_id
+                    );
+                }
             }
         }
     }
     
     wp_send_json_success(array(
         'folders' => $folders_with_posts,
-        'has_taxonomy' => true,
-        'post_type' => $post_type // For debugging
+        'post_type' => $post_type,
+        'source' => !empty($folders_with_posts) && isset($folders_with_posts[0]['premio_folder']) ? 'premio_settings' : 'taxonomy'
     ));
 }
 add_action('wp_ajax_aqm_get_folders_by_post_type', 'aqm_get_folders_by_post_type');
