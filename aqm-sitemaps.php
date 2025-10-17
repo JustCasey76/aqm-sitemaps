@@ -887,6 +887,16 @@ function aqm_get_folders_by_post_type() {
     $taxonomies = get_object_taxonomies($post_type);
     $has_folder_taxonomy = in_array('folder', $taxonomies);
     
+    // If folder taxonomy is not registered for this post type, return helpful message
+    if (!$has_folder_taxonomy) {
+        wp_send_json_success(array(
+            'folders' => array(),
+            'has_taxonomy' => false,
+            'message' => 'The Folders plugin is not enabled for this post type. Please enable it in Premio Folders settings.'
+        ));
+        return;
+    }
+    
     // Get all folders
     $all_folders = get_terms(array(
         'taxonomy' => 'folder',
@@ -903,18 +913,14 @@ function aqm_get_folders_by_post_type() {
                 'post_status' => 'publish',
                 'posts_per_page' => 1, // Just check if any exist
                 'fields' => 'ids', // Only get IDs for performance
-            );
-            
-            // Only add tax_query if folder taxonomy is registered for this post type
-            if ($has_folder_taxonomy) {
-                $args['tax_query'] = array(
+                'tax_query' => array(
                     array(
                         'taxonomy' => 'folder',
                         'field' => 'term_id',
                         'terms' => $folder->term_id,
                     ),
-                );
-            }
+                ),
+            );
             
             $posts_in_folder = get_posts($args);
             
@@ -926,23 +932,16 @@ function aqm_get_folders_by_post_type() {
                 $folders_with_posts[] = array(
                     'slug' => $folder->slug,
                     'name' => $folder_name,
-                    'has_taxonomy' => $has_folder_taxonomy
+                    'count' => count($posts_in_folder)
                 );
             }
         }
     }
     
-    // If no folders found and taxonomy is not registered, send helpful message
-    if (empty($folders_with_posts) && !$has_folder_taxonomy) {
-        wp_send_json_success(array(
-            'folders' => array(),
-            'message' => 'The Folders plugin is not enabled for this post type. Please enable it in Premio Folders settings.'
-        ));
-    }
-    
     wp_send_json_success(array(
         'folders' => $folders_with_posts,
-        'has_taxonomy' => $has_folder_taxonomy
+        'has_taxonomy' => true,
+        'post_type' => $post_type // For debugging
     ));
 }
 add_action('wp_ajax_aqm_get_folders_by_post_type', 'aqm_get_folders_by_post_type');
