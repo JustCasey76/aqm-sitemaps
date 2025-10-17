@@ -887,12 +887,25 @@ function aqm_get_folders_by_post_type() {
     $taxonomies = get_object_taxonomies($post_type);
     $has_folder_taxonomy = in_array('folder', $taxonomies);
     
-    // If folder taxonomy is not registered for this post type, return helpful message
-    if (!$has_folder_taxonomy) {
+    // Premio Folders might use a custom structure, so let's also check if any folders exist
+    // by looking at the terms directly
+    $all_folders = get_terms(array(
+        'taxonomy' => 'folder',
+        'hide_empty' => false,
+    ));
+    
+    // If taxonomy not registered but folders exist, Premio Folders might be using custom logic
+    // Let's try to get posts anyway
+    if (!$has_folder_taxonomy && (empty($all_folders) || is_wp_error($all_folders))) {
         wp_send_json_success(array(
             'folders' => array(),
             'has_taxonomy' => false,
-            'message' => 'The Folders plugin is not enabled for this post type. Please enable it in Premio Folders settings.'
+            'message' => 'The Folders plugin is not enabled for this post type. Please enable it in Premio Folders settings.',
+            'debug' => array(
+                'post_type' => $post_type,
+                'taxonomies' => $taxonomies,
+                'has_folders' => !empty($all_folders)
+            )
         ));
         return;
     }
@@ -907,18 +920,22 @@ function aqm_get_folders_by_post_type() {
     
     if (!empty($all_folders) && !is_wp_error($all_folders)) {
         foreach ($all_folders as $folder) {
-            // Get posts of this type in this folder
+            // Try to get posts of this type in this folder
+            // Even if taxonomy not officially registered, try the query
             $args = array(
                 'post_type' => $post_type,
                 'post_status' => 'publish',
                 'posts_per_page' => 1, // Just check if any exist
                 'fields' => 'ids', // Only get IDs for performance
-                'tax_query' => array(
-                    array(
-                        'taxonomy' => 'folder',
-                        'field' => 'term_id',
-                        'terms' => $folder->term_id,
-                    ),
+                'suppress_filters' => false, // Allow Premio Folders to filter
+            );
+            
+            // Try tax_query approach
+            $args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'folder',
+                    'field' => 'term_id',
+                    'terms' => $folder->term_id,
                 ),
             );
             
@@ -932,7 +949,8 @@ function aqm_get_folders_by_post_type() {
                 $folders_with_posts[] = array(
                     'slug' => $folder->slug,
                     'name' => $folder_name,
-                    'count' => count($posts_in_folder)
+                    'count' => count($posts_in_folder),
+                    'term_id' => $folder->term_id
                 );
             }
         }
