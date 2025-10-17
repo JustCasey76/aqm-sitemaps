@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 3.0.5
+ * Version: 3.2.0
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '3.0.5');
+define('AQM_SITEMAPS_VERSION', '3.2.0');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -446,6 +446,20 @@ function aqm_sitemaps_page() {
                                 </div>
 
                                 <div class="form-group">
+                                    <label for="post_type">Post Type:</label>
+                                    <select id="post_type" name="post_type">
+                                        <option value="page">Pages</option>
+                                        <?php 
+                                        // Get all public custom post types
+                                        $post_types = get_post_types(array('public' => true, '_builtin' => false), 'objects');
+                                        foreach ($post_types as $post_type): ?>
+                                            <option value="<?php echo esc_attr($post_type->name); ?>"><?php echo esc_html($post_type->labels->name); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="form-help">Select the post type to display in the sitemap</div>
+                                </div>
+
+                                <div class="form-group">
                                     <label for="shortcode_name">Shortcode Name:</label>
                                     <input type="text" id="shortcode_name" name="shortcode_name" placeholder="Enter shortcode name" required>
                                     <div class="form-help">Leave empty to auto-generate from folder name</div>
@@ -457,6 +471,32 @@ function aqm_sitemaps_page() {
                                         <option value="menu_order">Menu Order</option>
                                         <option value="title">Title</option>
                                         <option value="date">Date</option>
+                                        <option value="custom_field">Custom Field (ACF)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group custom-field-option" style="display:none;">
+                                    <label for="custom_field_name">Custom Field Name:</label>
+                                    <input type="text" id="custom_field_name" name="custom_field_name" placeholder="e.g., custom_order">
+                                    <div class="form-help">Enter the ACF field name to sort by (field must exist on the post type)</div>
+                                </div>
+
+                                <div class="form-group custom-field-option" style="display:none;">
+                                    <label for="custom_field_type">Custom Field Type:</label>
+                                    <select id="custom_field_type" name="custom_field_type">
+                                        <option value="CHAR">Text/String</option>
+                                        <option value="NUMERIC">Number</option>
+                                        <option value="DATE">Date</option>
+                                        <option value="DATETIME">DateTime</option>
+                                    </select>
+                                    <div class="form-help">Select the data type of your custom field for proper sorting</div>
+                                </div>
+
+                                <div class="form-group custom-field-option" style="display:none;">
+                                    <label for="custom_field_order">Custom Field Order:</label>
+                                    <select id="custom_field_order" name="custom_field_order">
+                                        <option value="ASC">Ascending (A-Z, 0-9, oldest first)</option>
+                                        <option value="DESC">Descending (Z-A, 9-0, newest first)</option>
                                     </select>
                                 </div>
 
@@ -496,21 +536,21 @@ function aqm_sitemaps_page() {
                                 </div>
                                 
                                 <div class="form-group page-exclusions">
-                                    <label for="exclude_ids">Exclude Pages:</label>
+                                    <label for="exclude_ids">Exclude Items:</label>
                                     <div class="excluded-pages-container">
                                         <select id="page_to_exclude" class="page-selector">
-                                            <option value="">Select a page to exclude</option>
+                                            <option value="">Select an item to exclude</option>
                                             <?php 
                                             $all_pages = get_pages();
                                             foreach ($all_pages as $page): ?>
-                                                <option value="<?php echo esc_attr($page->ID); ?>"><?php echo esc_html($page->post_title); ?></option>
+                                                <option value="<?php echo esc_attr($page->ID); ?>" data-post-type="page"><?php echo esc_html($page->post_title); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                         <button type="button" id="add_excluded_page" class="button">Add</button>
                                     </div>
                                     <div id="excluded_pages_list" class="excluded-pages-list"></div>
                                     <input type="hidden" id="exclude_ids" name="exclude_ids" value="">
-                                    <div class="form-help">Select pages to exclude from the sitemap</div>
+                                    <div class="form-help">Select items to exclude from the sitemap</div>
                                 </div>
                             </div>
 
@@ -765,7 +805,75 @@ function aqm_delete_shortcode() {
 }
 add_action('wp_ajax_aqm_delete_shortcode', 'aqm_delete_shortcode');
 
+// Get posts by post type for exclusion dropdown
+function aqm_get_posts_by_type() {
+    if (!check_ajax_referer('aqm_sitemaps_nonce', 'nonce', false)) {
+        wp_send_json_error('Invalid nonce');
+    }
 
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+
+    $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'page';
+    
+    // Validate post type
+    $valid_post_types = get_post_types(array('public' => true), 'names');
+    if (!in_array($post_type, $valid_post_types)) {
+        wp_send_json_error('Invalid post type');
+    }
+    
+    // Get posts of the specified type
+    $posts = get_posts(array(
+        'post_type' => $post_type,
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'orderby' => 'title',
+        'order' => 'ASC'
+    ));
+    
+    $options = array();
+    foreach ($posts as $post) {
+        $options[] = array(
+            'id' => $post->ID,
+            'title' => $post->post_title
+        );
+    }
+    
+    wp_send_json_success($options);
+}
+add_action('wp_ajax_aqm_get_posts_by_type', 'aqm_get_posts_by_type');
+
+
+
+// Helper function to build ORDER BY clause
+function aqm_build_order_clause($order, $custom_field_name = '', $custom_field_type = 'CHAR', $custom_field_order = 'ASC') {
+    global $wpdb;
+    
+    if ($order === 'custom_field' && !empty($custom_field_name)) {
+        // Build meta query for custom field ordering
+        // We'll use a LEFT JOIN with wp_postmeta to order by custom field
+        return array(
+            'join' => " LEFT JOIN {$wpdb->postmeta} AS mt1 ON ({$wpdb->posts}.ID = mt1.post_id AND mt1.meta_key = '" . esc_sql($custom_field_name) . "')",
+            'orderby' => " ORDER BY CAST(mt1.meta_value AS {$custom_field_type}) {$custom_field_order}, {$wpdb->posts}.post_title ASC"
+        );
+    } elseif ($order === 'title') {
+        return array(
+            'join' => '',
+            'orderby' => " ORDER BY {$wpdb->posts}.post_title ASC"
+        );
+    } elseif ($order === 'date') {
+        return array(
+            'join' => '',
+            'orderby' => " ORDER BY {$wpdb->posts}.post_date DESC"
+        );
+    } else {
+        return array(
+            'join' => '',
+            'orderby' => " ORDER BY {$wpdb->posts}.menu_order ASC, {$wpdb->posts}.post_title ASC"
+        );
+    }
+}
 
 // The actual shortcode function
 function display_enhanced_page_sitemap($atts) {
@@ -787,9 +895,13 @@ function display_enhanced_page_sitemap($atts) {
     $atts = shortcode_atts(array(
         'folder_slug' => '',
         'folder_slugs' => '', // New parameter for multiple folders
+        'post_type' => 'page', // New parameter for post type
         'display_type' => 'columns',
         'columns' => '2',
         'order' => 'menu_order',
+        'custom_field_name' => '', // ACF custom field name for ordering
+        'custom_field_type' => 'CHAR', // ACF custom field type (CHAR, NUMERIC, DATE, DATETIME)
+        'custom_field_order' => 'ASC', // Order direction for custom field (ASC or DESC)
         'exclude_ids' => '', // Parameter to exclude pages by ID
         'show_all' => 'no', // New parameter to show all pages
         'item_margin' => '10px', // New parameter for item bottom margin
@@ -801,10 +913,21 @@ function display_enhanced_page_sitemap($atts) {
     // Sanitize attributes
     $folder_slug = sanitize_text_field($atts['folder_slug']);
     $folder_slugs = sanitize_text_field($atts['folder_slugs']);
+    $post_type = sanitize_text_field($atts['post_type']);
+    
+    // Validate post type exists and is public
+    $valid_post_types = get_post_types(array('public' => true), 'names');
+    if (!in_array($post_type, $valid_post_types)) {
+        $post_type = 'page'; // Fallback to page if invalid
+    }
+    
     $display_type = in_array($atts['display_type'], array('columns', 'inline')) ? $atts['display_type'] : 'columns';
     $columns = intval($atts['columns']);
     $columns = $columns > 0 && $columns <= 6 ? $columns : 2;
-    $order = in_array($atts['order'], array('menu_order', 'title', 'date')) ? $atts['order'] : 'menu_order';
+    $order = in_array($atts['order'], array('menu_order', 'title', 'date', 'custom_field')) ? $atts['order'] : 'menu_order';
+    $custom_field_name = sanitize_text_field($atts['custom_field_name']);
+    $custom_field_type = in_array($atts['custom_field_type'], array('CHAR', 'NUMERIC', 'DATE', 'DATETIME')) ? $atts['custom_field_type'] : 'CHAR';
+    $custom_field_order = in_array(strtoupper($atts['custom_field_order']), array('ASC', 'DESC')) ? strtoupper($atts['custom_field_order']) : 'ASC';
     $show_all = in_array(strtolower($atts['show_all']), array('yes', 'true', '1')) ? true : false;
     $item_margin = sanitize_text_field($atts['item_margin']);
     $icon = sanitize_text_field($atts['icon']);
@@ -860,24 +983,23 @@ function display_enhanced_page_sitemap($atts) {
     // Initialize page_ids array
     $page_ids = array();
     
-    // If show_all is true, get all published pages
+    // If show_all is true, get all published posts of the specified type
     if ($show_all) {
-        $all_pages_query = "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
+        // Get order clause
+        $order_clause = aqm_build_order_clause($order, $custom_field_name, $custom_field_type, $custom_field_order);
+        
+        $all_pages_query = $wpdb->prepare("SELECT {$wpdb->posts}.ID FROM {$wpdb->posts}", '');
+        $all_pages_query .= $order_clause['join'];
+        $all_pages_query .= $wpdb->prepare(" WHERE {$wpdb->posts}.post_type = %s AND {$wpdb->posts}.post_status = 'publish'", $post_type);
         
         // Add exclude IDs if any
         if (!empty($exclude_ids)) {
             $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
-            $all_pages_query .= " AND ID NOT IN ({$exclude_ids_str})";
+            $all_pages_query .= " AND {$wpdb->posts}.ID NOT IN ({$exclude_ids_str})";
         }
         
         // Add ordering
-        if ($order === 'title') {
-            $all_pages_query .= " ORDER BY post_title ASC";
-        } elseif ($order === 'date') {
-            $all_pages_query .= " ORDER BY post_date DESC";
-        } else {
-            $all_pages_query .= " ORDER BY menu_order ASC, post_title ASC";
-        }
+        $all_pages_query .= $order_clause['orderby'];
         
         // Get the final list of page IDs
         $page_ids = $wpdb->get_col($all_pages_query);
@@ -951,25 +1073,24 @@ function display_enhanced_page_sitemap($atts) {
         // Remove duplicates
         $all_page_ids = array_unique($all_page_ids);
         
-        // Filter to only include published pages
+        // Filter to only include published posts of the specified type
         if (!empty($all_page_ids)) {
+            // Get order clause
+            $order_clause = aqm_build_order_clause($order, $custom_field_name, $custom_field_type, $custom_field_order);
+            
             $page_ids_str = implode(',', array_map('intval', $all_page_ids));
-            $published_query = "SELECT ID FROM {$wpdb->posts} WHERE ID IN ({$page_ids_str}) AND post_type = 'page' AND post_status = 'publish'";
+            $published_query = "SELECT {$wpdb->posts}.ID FROM {$wpdb->posts}";
+            $published_query .= $order_clause['join'];
+            $published_query .= $wpdb->prepare(" WHERE {$wpdb->posts}.ID IN ({$page_ids_str}) AND {$wpdb->posts}.post_type = %s AND {$wpdb->posts}.post_status = 'publish'", $post_type);
             
             // Add exclude IDs if any
             if (!empty($exclude_ids)) {
                 $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
-                $published_query .= " AND ID NOT IN ({$exclude_ids_str})";
+                $published_query .= " AND {$wpdb->posts}.ID NOT IN ({$exclude_ids_str})";
             }
             
             // Add ordering
-            if ($order === 'title') {
-                $published_query .= " ORDER BY post_title ASC";
-            } elseif ($order === 'date') {
-                $published_query .= " ORDER BY post_date DESC";
-            } else {
-                $published_query .= " ORDER BY menu_order ASC, post_title ASC";
-            }
+            $published_query .= $order_clause['orderby'];
             
             // Get the final list of page IDs
             $page_ids = $wpdb->get_col($published_query);
@@ -997,12 +1118,12 @@ function display_enhanced_page_sitemap($atts) {
         $debug .= '</div>';
     }
     
-    // Get pages by ID
+    // Get posts by ID
     $pages = array();
     if (!empty($page_ids)) {
         foreach ($page_ids as $page_id) {
             $page = get_post($page_id);
-            if ($page && $page->post_type == 'page' && $page->post_status == 'publish') {
+            if ($page && $page->post_type == $post_type && $page->post_status == 'publish') {
                 $pages[] = $page;
             }
         }

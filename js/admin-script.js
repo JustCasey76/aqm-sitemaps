@@ -54,6 +54,55 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Toggle custom field options visibility based on order selection
+    $('#order').on('change', function() {
+        const orderType = $(this).val();
+        if (orderType === 'custom_field') {
+            $('.custom-field-option').show();
+        } else {
+            $('.custom-field-option').hide();
+        }
+    });
+
+    // Update exclusion dropdown when post type changes
+    $('#post_type').on('change', function() {
+        const postType = $(this).val();
+        console.log('Post type changed to:', postType);
+        
+        // Clear excluded items list
+        $('#excluded_pages_list').empty();
+        $('#exclude_ids').val('');
+        
+        // Load posts of the selected type
+        $.ajax({
+            url: aqmSitemaps.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'aqm_get_posts_by_type',
+                nonce: aqmSitemaps.nonce,
+                post_type: postType
+            },
+            success: function(response) {
+                if (response.success) {
+                    const $select = $('#page_to_exclude');
+                    $select.empty();
+                    $select.append('<option value="">Select an item to exclude</option>');
+                    
+                    response.data.forEach(function(post) {
+                        $select.append(`<option value="${post.id}" data-post-type="${postType}">${post.title}</option>`);
+                    });
+                    
+                    console.log('Loaded', response.data.length, 'posts for type:', postType);
+                } else {
+                    console.error('Error loading posts:', response.data);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('AJAX error loading posts:', textStatus);
+            }
+        });
+    });
+
     // Handle excluded pages
     $('#add_excluded_page').on('click', function() {
         const pageId = $('#page_to_exclude').val();
@@ -120,9 +169,13 @@ jQuery(document).ready(function($) {
         }
         
         // Get all form field values
+        const postType = $('#post_type').val();
         const displayType = $('#display_type').val();
         const columns = $('#columns').val();
         const order = $('#order').val();
+        const customFieldName = $('#custom_field_name').val();
+        const customFieldType = $('#custom_field_type').val();
+        const customFieldOrder = $('#custom_field_order').val();
         const excludeIds = $('#exclude_ids').val();
         
         // Get the margin, icon, and icon color values directly from the form fields
@@ -152,9 +205,13 @@ jQuery(document).ready(function($) {
         console.log('Form field values:', {
             shortcodeName,
             selectedFolders,
+            postType,
             displayType,
             columns,
             order,
+            customFieldName,
+            customFieldType,
+            customFieldOrder,
             excludeIds,
             itemMargin,
             icon,
@@ -166,6 +223,11 @@ jQuery(document).ready(function($) {
         // Start building the shortcode
         let shortcode = '[sitemap_page';
         
+        // Add post type (only if not 'page' to maintain backward compatibility)
+        if (postType && postType !== 'page') {
+            shortcode += ` post_type="${postType}"`;
+        }
+        
         // Add display type
         shortcode += ` display_type="${displayType}"`;
         
@@ -176,6 +238,15 @@ jQuery(document).ready(function($) {
         
         // Add order
         shortcode += ` order="${order}"`;
+        
+        // Add custom field parameters if order is custom_field
+        if (order === 'custom_field') {
+            if (customFieldName && customFieldName.trim() !== '') {
+                shortcode += ` custom_field_name="${customFieldName.trim()}"`;
+                shortcode += ` custom_field_type="${customFieldType}"`;
+                shortcode += ` custom_field_order="${customFieldOrder}"`;
+            }
+        }
         
         // Use folder_slug for single folder (backward compatibility) 
         // or folder_slugs for multiple folders
@@ -322,7 +393,7 @@ jQuery(document).ready(function($) {
             }
             
             // Ensure all expected attributes are present and log missing ones
-            const expectedAttributes = ['display_type', 'columns', 'order', 'item_margin', 'icon', 'icon_color'];
+            const expectedAttributes = ['post_type', 'display_type', 'columns', 'order', 'custom_field_name', 'custom_field_type', 'custom_field_order', 'item_margin', 'icon', 'icon_color'];
             expectedAttributes.forEach(attr => {
                 if (attributes[attr] === undefined) {
                     console.log(`Attribute ${attr} not found in shortcode`);
@@ -341,9 +412,13 @@ jQuery(document).ready(function($) {
         
         // Set default values if not present
         const defaultValues = {
+            post_type: 'page',
             display_type: 'columns',
             columns: '2',
             order: 'menu_order',
+            custom_field_name: '',
+            custom_field_type: 'CHAR',
+            custom_field_order: 'ASC',
             exclude_ids: '',
             item_margin: '10px',
             icon: '',
@@ -440,6 +515,11 @@ jQuery(document).ready(function($) {
                 updateFieldWithAnimation($('#shortcode_name'), name);
                 // Ensure we're using the actual values from the shortcode, not defaults
                 setTimeout(() => {
+                    updateFieldWithAnimation($('#post_type'), finalAttributes.post_type);
+                    console.log('Set post_type to:', finalAttributes.post_type);
+                }, 100);
+                
+                setTimeout(() => {
                     updateFieldWithAnimation($('#display_type'), finalAttributes.display_type);
                     console.log('Set display_type to:', finalAttributes.display_type);
                 }, 300);
@@ -452,12 +532,34 @@ jQuery(document).ready(function($) {
                 setTimeout(() => {
                     updateFieldWithAnimation($('#order'), finalAttributes.order);
                     console.log('Set order to:', finalAttributes.order);
+                    
+                    // Show/hide custom field options based on order type
+                    if (finalAttributes.order === 'custom_field') {
+                        $('.custom-field-option').show();
+                    } else {
+                        $('.custom-field-option').hide();
+                    }
                 }, 900);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#custom_field_name'), finalAttributes.custom_field_name);
+                    console.log('Set custom_field_name to:', finalAttributes.custom_field_name);
+                }, 1000);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#custom_field_type'), finalAttributes.custom_field_type);
+                    console.log('Set custom_field_type to:', finalAttributes.custom_field_type);
+                }, 1100);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#custom_field_order'), finalAttributes.custom_field_order);
+                    console.log('Set custom_field_order to:', finalAttributes.custom_field_order);
+                }, 1200);
                 
                 setTimeout(() => {
                     updateFieldWithAnimation($('#item_margin'), finalAttributes.item_margin);
                     console.log('Set item_margin to:', finalAttributes.item_margin);
-                }, 1200);
+                }, 1300);
                 
                 setTimeout(() => {
                     updateFieldWithAnimation($('#icon'), finalAttributes.icon);
@@ -471,9 +573,13 @@ jQuery(document).ready(function($) {
                 
                 // Log the values being set for each field
                 console.log('Setting field values:', {
+                    post_type: finalAttributes.post_type,
                     display_type: finalAttributes.display_type,
                     columns: finalAttributes.columns,
                     order: finalAttributes.order,
+                    custom_field_name: finalAttributes.custom_field_name,
+                    custom_field_type: finalAttributes.custom_field_type,
+                    custom_field_order: finalAttributes.custom_field_order,
                     item_margin: finalAttributes.item_margin,
                     icon: finalAttributes.icon,
                     icon_color: finalAttributes.icon_color
