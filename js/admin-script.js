@@ -91,10 +91,19 @@ jQuery(document).ready(function($) {
                     const $folderList = $('.folder-checklist');
                     $folderList.empty();
                     
-                    if (response.data.length === 0) {
-                        $folderList.append('<p style="color:#666;font-style:italic;">No folders found for this post type</p>');
+                    // Handle new response format with folders array
+                    const folders = response.data.folders || response.data;
+                    const message = response.data.message;
+                    
+                    if (folders.length === 0) {
+                        if (message) {
+                            // Show helpful message from server
+                            $folderList.append(`<p style="color:#d63638;font-style:italic;padding:10px;background:#fff8e5;border-left:3px solid #d63638;">${message}</p>`);
+                        } else {
+                            $folderList.append('<p style="color:#666;font-style:italic;">No folders found for this post type</p>');
+                        }
                     } else {
-                        response.data.forEach(function(folder) {
+                        folders.forEach(function(folder) {
                             const checkboxHtml = `
                                 <div class="folder-checkbox-item">
                                     <input type="checkbox" 
@@ -107,7 +116,7 @@ jQuery(document).ready(function($) {
                             $folderList.append(checkboxHtml);
                         });
                         
-                        console.log('Loaded', response.data.length, 'folders for type:', postType);
+                        console.log('Loaded', folders.length, 'folders for type:', postType);
                     }
                 } else {
                     console.error('Error loading folders:', response.data);
