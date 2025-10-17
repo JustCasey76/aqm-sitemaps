@@ -26,7 +26,7 @@ function aqm_sitemaps_load_textdomain() {
 add_action('init', 'aqm_sitemaps_load_textdomain');
 
 // Include the GitHub Updater class
-require_once plugin_dir_path(__FILE__) . 'includes/class-aqmsm-updater.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
 
 // Initialize the GitHub Updater
 function aqm_sitemaps_init_github_updater() {
