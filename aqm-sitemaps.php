@@ -28,6 +28,40 @@ add_action('init', 'aqm_sitemaps_load_textdomain');
 // Include the GitHub Updater class
 require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
 
+// Check if plugin needs reactivation after update
+function aqm_sitemaps_check_reactivation() {
+    // Get the plugin basename
+    $plugin_basename = plugin_basename(__FILE__);
+    
+    // Check if the plugin was active before an update
+    if (get_option('aqm_sitemaps_was_active', false)) {
+        // Make sure plugin functions are loaded
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        
+        // If plugin is not active, reactivate it
+        if (!is_plugin_active($plugin_basename)) {
+            error_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
+            
+            // Reactivate the plugin
+            $result = activate_plugin($plugin_basename);
+            
+            if (is_wp_error($result)) {
+                error_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
+            } else {
+                error_log('[AQM SITEMAPS] Plugin successfully reactivated');
+                
+                // Set a transient to show a notice
+                set_transient('aqmsm_reactivated', true, 30);
+            }
+            
+            // Clear plugin cache
+            wp_clean_plugins_cache(true);
+        }
+    }
+}
+
 // Initialize the GitHub Updater
 function aqm_sitemaps_init_github_updater() {
     // Log that we're initializing the updater
