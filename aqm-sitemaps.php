@@ -2,10 +2,10 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 3.0.4
+ * Version: 3.0.5
  * Author: AQ Marketing
- * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
- * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
+ * Plugin URI: https://github.com/AQ-Marketing/aqm-sitemaps
+ * GitHub Plugin URI: https://github.com/AQ-Marketing/aqm-sitemaps
  * Primary Branch: main
  * Release Asset: true
  * Requires at least: 5.2
@@ -40,7 +40,7 @@ function aqm_sitemaps_init_github_updater() {
         try {
             new AQM_Sitemaps\Updater\GitHub_Updater(
                 __FILE__,                // Plugin File
-                'JustCasey76',           // GitHub username
+                'AQ-Marketing',           // GitHub username
                 'aqm-sitemaps'           // GitHub repository name
             );
             
@@ -220,7 +220,7 @@ function aqm_sitemaps_handle_check_updates_ajax() {
     check_ajax_referer('aqm-sitemaps-check-updates', 'nonce');
     
     // Clear update transients to force a fresh check
-    delete_transient('aqmsm_github_data_' . md5('JustCasey76' . 'aqm-sitemaps'));
+    delete_transient('aqmsm_github_data_' . md5('AQ-Marketing' . 'aqm-sitemaps'));
     delete_site_transient('update_plugins');
     
     // Force WordPress to check for updates
@@ -371,7 +371,7 @@ function aqm_sitemaps_activate() {
     update_option('aqm_sitemaps_was_active', true);
     
     // Clear any update transients to force a fresh check
-    delete_transient('aqmsm_github_data_' . md5('JustCasey76' . 'aqm-sitemaps'));
+    delete_transient('aqmsm_github_data_' . md5('AQ-Marketing' . 'aqm-sitemaps'));
     delete_site_transient('update_plugins');
     
     // Log activation
