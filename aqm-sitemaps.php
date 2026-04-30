@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 3.0.5
+ * Version: 3.0.6
  * Author: AQ Marketing
  * Plugin URI: https://github.com/AQ-Marketing/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/AQ-Marketing/aqm-sitemaps
