@@ -1,6 +1,19 @@
 jQuery(document).ready(function($) {
     console.log('AQM Sitemaps script loaded'); // Debug log
 
+    // Sync color pickers with hex displays
+    function syncColorPicker(colorId, hexId) {
+        $('#' + colorId).on('input change', function() {
+            $('#' + hexId).val($(this).val());
+        });
+    }
+    
+    syncColorPicker('border_color', 'border_color_hex');
+    syncColorPicker('icon_color', 'icon_color_hex');
+    syncColorPicker('active_color', 'active_color_hex');
+    syncColorPicker('load_more_bg_color', 'load_more_bg_color_hex');
+    syncColorPicker('load_more_text_color', 'load_more_text_color_hex');
+
     // Function to reset form to create mode
     function resetToCreateMode() {
         $('#edit_mode').val('0');
@@ -9,11 +22,6 @@ jQuery(document).ready(function($) {
         $('.aqm-sitemaps-generator h2').text('Create New Sitemap');
         $('#submit_button').text('Generate Shortcode');
         $('#aqm-sitemaps-form')[0].reset();
-    }
-    
-    // Load folders for the default post type on page load
-    if ($('#post_type').length) {
-        $('#post_type').trigger('change');
     }
 
     // Auto-fill shortcode name when folder checkboxes change
@@ -70,6 +78,21 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Toggle pagination options visibility based on pagination selection
+    $('#pagination').on('change', function() {
+        const paginationType = $(this).val();
+        if (paginationType === 'none') {
+            $('.pagination-option').hide();
+        } else {
+            $('.pagination-option').show();
+            if (paginationType === 'load_more') {
+                $('.load-more-option').show();
+            } else {
+                $('.load-more-option').hide();
+            }
+        }
+    });
+
     // Update exclusion dropdown and folders when post type changes
     $('#post_type').on('change', function() {
         const postType = $(this).val();
@@ -83,6 +106,7 @@ jQuery(document).ready(function($) {
         $('.folder-checklist input[type="checkbox"]').prop('checked', false);
         
         // Load folders for the selected post type
+        console.log('Starting folders AJAX call for:', postType);
         $.ajax({
             url: aqmSitemaps.ajaxurl,
             type: 'POST',
@@ -92,29 +116,45 @@ jQuery(document).ready(function($) {
                 post_type: postType
             },
             success: function(response) {
+                console.log('Folders AJAX SUCCESS');
+                console.log('Folders AJAX response:', response);
+                
+                const $folderList = $('.folder-checklist');
+                $folderList.empty();
+                
                 if (response.success) {
-                    const $folderList = $('.folder-checklist');
-                    $folderList.empty();
-                    
                     // Handle new response format with folders array
                     const folders = response.data.folders || response.data;
                     const message = response.data.message;
                     
-                    if (folders.length === 0) {
+                    console.log('Folders data:', folders);
+                    console.log('Message:', message);
+                    
+                    if (!folders || folders.length === 0) {
                         if (message) {
                             // Show helpful message from server
                             $folderList.append(`<p style="color:#d63638;font-style:italic;padding:10px;background:#fff8e5;border-left:3px solid #d63638;">${message}</p>`);
                         } else {
                             $folderList.append('<p style="color:#666;font-style:italic;">No folders found for this post type</p>');
                         }
+                        
+                        // Auto-fill shortcode name for post type without folders
+                        if ($('#edit_mode').val() !== '1' && !$('#shortcode_name').val().trim()) {
+                            if (postType === 'post') {
+                                $('#shortcode_name').val('Posts');
+                            }
+                        }
                     } else {
                         folders.forEach(function(folder) {
+                            // Don't check any folders by default
+                            const checkedAttr = '';
+                            
                             const checkboxHtml = `
                                 <div class="folder-checkbox-item">
                                     <input type="checkbox" 
                                            id="folder_${folder.slug}" 
                                            name="folder[]" 
-                                           value="${folder.slug}">
+                                           value="${folder.slug}"${checkedAttr}>
                                     <label for="folder_${folder.slug}">${folder.name}</label>
                                 </div>
                             `;
@@ -125,10 +165,15 @@ jQuery(document).ready(function($) {
                     }
                 } else {
                     console.error('Error loading folders:', response.data);
+                    $folderList.append('<p style="color:#d63638;">Error loading folders. Check console for details.</p>');
                 }
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                console.error('AJAX error loading folders:', textStatus);
+                console.error('AJAX error loading folders:', textStatus, errorThrown);
+                console.error('Response:', jqXHR.responseText);
+                const $folderList = $('.folder-checklist');
+                $folderList.empty();
+                $folderList.append('<p style="color:#d63638;">AJAX error loading folders. Check console for details.</p>');
             }
         });
         
@@ -220,16 +265,7 @@ jQuery(document).ready(function($) {
         // Check if there are any folder checkboxes available
         const hasFolderCheckboxes = $('.folder-checklist input[type="checkbox"]').length > 0;
         
-        if (hasFolderCheckboxes && selectedFolders.length === 0) {
-            alert('Please select at least one folder');
-            return;
-        }
-        
-        // If no folders are available for this post type, we can't proceed
-        if (!hasFolderCheckboxes) {
-            alert('No folders are available for the selected post type. Please create folders for this post type first, or use a different post type.');
-            return;
-        }
+        // Folders are now optional - no validation required
         
         if (!shortcodeName) {
             alert('Please enter a shortcode name');
@@ -252,6 +288,18 @@ jQuery(document).ready(function($) {
             itemMargin = $('#item_margin').val();
         }
         
+        // Get item_padding value
+        let itemPadding = '';
+        if ($('#item_padding').length) {
+            itemPadding = $('#item_padding').val();
+        }
+        
+        // Get border_color value
+        let borderColor = '';
+        if ($('#border_color').length) {
+            borderColor = $('#border_color').val();
+        }
+        
         // Get icon value - ensure we're getting the actual value from the input field
         let icon = '';
         if ($('#icon').length) {
@@ -265,6 +313,24 @@ jQuery(document).ready(function($) {
             iconColor = $('#icon_color').val();
             console.log('Retrieved icon_color value from field:', iconColor);
         }
+        
+        // Get heading value
+        let heading = '';
+        if ($('#heading').length) {
+            heading = $('#heading').val();
+            console.log('Retrieved heading value from field:', heading);
+        }
+        
+        // Get exclude current and active color values
+        const excludeCurrent = $('#exclude_current').is(':checked') ? 'yes' : 'no';
+        const activeColor = $('#active_color').val();
+        
+        // Get pagination values
+        const pagination = $('#pagination').val();
+        const postsPerPage = $('#posts_per_page').val();
+        const loadMoreText = $('#load_more_text').val();
+        const loadMoreBgColor = $('#load_more_bg_color').val();
+        const loadMoreTextColor = $('#load_more_text_color').val();
         
         const editMode = $('#edit_mode').val() === '1';
         const originalName = $('#original_name').val();
@@ -284,6 +350,7 @@ jQuery(document).ready(function($) {
             itemMargin,
             icon,
             iconColor,
+            heading,
             editMode,
             originalName
         });
@@ -317,12 +384,13 @@ jQuery(document).ready(function($) {
         }
         
         // Use folder_slug for single folder (backward compatibility) 
-        // or folder_slugs for multiple folders
+        // or folder_slugs for multiple folders (only if folders are selected)
         if (selectedFolders.length === 1) {
             shortcode += ` folder_slug="${selectedFolders[0]}"`;
-        } else {
+        } else if (selectedFolders.length > 1) {
             shortcode += ` folder_slugs="${selectedFolders.join(',')}"`;
         }
+        // If no folders selected, don't add folder parameters
         
         if (excludeIds) {
             shortcode += ` exclude_ids="${excludeIds}"`;
@@ -333,29 +401,62 @@ jQuery(document).ready(function($) {
         shortcode += ` item_margin="${marginValue}"`;
         console.log('Using margin value in shortcode:', marginValue);
         
+        // Add item_padding parameter
+        const paddingValue = (itemPadding && itemPadding.trim() !== '') ? itemPadding.trim() : '10px';
+        shortcode += ` item_padding="${paddingValue}"`;
+        
+        // Add border_color parameter
+        const borderColorValue = (borderColor && borderColor.trim() !== '') ? borderColor.trim() : '#dddddd';
+        shortcode += ` border_color="${borderColorValue}"`;
+        
         // Always add icon parameter regardless of value
         console.log('Icon value before processing:', icon);
-        // Always include the icon parameter even if empty
         shortcode += ` icon="${icon ? icon.trim() : ''}"`;
         console.log('Adding icon to shortcode:', icon ? icon.trim() : '');
         
         // Always add icon_color parameter regardless of value
         console.log('Icon color value before processing:', iconColor);
-        // Always include the icon_color parameter even if empty
         shortcode += ` icon_color="${iconColor ? iconColor.trim() : ''}"`;
         console.log('Adding icon_color to shortcode:', iconColor ? iconColor.trim() : '');
         
-        // Always include icon and icon_color values from the form fields
-        // This ensures they're included in the shortcode regardless of their value
-        shortcode += ` icon="${icon}"`;
-        console.log('Adding icon to shortcode regardless of value:', icon);
+        // Add heading parameter if provided
+        if (heading && heading.trim() !== '') {
+            shortcode += ` heading="${heading.trim()}"`;
+            console.log('Adding heading to shortcode:', heading.trim());
+        }
         
-        shortcode += ` icon_color="${iconColor}"`;
-        console.log('Adding icon_color to shortcode regardless of value:', iconColor);
+        // Add exclude current parameter if checked
+        if (excludeCurrent === 'yes') {
+            shortcode += ` exclude_current="yes"`;
+        }
+        
+        // Add active color parameter
+        if (activeColor && activeColor.trim() !== '') {
+            shortcode += ` active_color="${activeColor.trim()}"`;
+        }
+        
+        // Add pagination parameters if not 'none'
+        if (pagination && pagination !== 'none') {
+            shortcode += ` pagination="${pagination}"`;
+            if (postsPerPage && postsPerPage.trim() !== '') {
+                shortcode += ` posts_per_page="${postsPerPage.trim()}"`;
+            }
+            if (pagination === 'load_more') {
+                if (loadMoreText && loadMoreText.trim() !== '') {
+                    shortcode += ` load_more_text="${loadMoreText.trim()}"`;
+                }
+                if (loadMoreBgColor && loadMoreBgColor.trim() !== '') {
+                    shortcode += ` load_more_bg_color="${loadMoreBgColor.trim()}"`;
+                }
+                if (loadMoreTextColor && loadMoreTextColor.trim() !== '') {
+                    shortcode += ` load_more_text_color="${loadMoreTextColor.trim()}"`;
+                }
+            }
+            console.log('Adding pagination to shortcode:', pagination);
+        }
         
         // Log the complete shortcode before closing it
         console.log('Shortcode before closing bracket:', shortcode);
-        
         
         shortcode += `]`;
 
@@ -370,7 +471,7 @@ jQuery(document).ready(function($) {
         // Log the final shortcode being sent
         console.log('Final shortcode being sent to server:', shortcode);
         
-        // Add form field values to the data object for debugging
+        // Add form field values to the data object
         const formData = {
             action: 'aqm_save_shortcode',
             name: shortcodeName,
@@ -378,6 +479,11 @@ jQuery(document).ready(function($) {
             edit_mode: editMode ? '1' : '0',
             original_name: originalName,
             nonce: aqmSitemaps.nonce,
+            // Include all form field values
+            icon: icon,
+            icon_color: iconColor,
+            item_margin: itemMargin,
+            heading: heading,
             // Add these for debugging
             debug_icon: icon,
             debug_icon_color: iconColor
@@ -461,7 +567,7 @@ jQuery(document).ready(function($) {
             }
             
             // Ensure all expected attributes are present and log missing ones
-            const expectedAttributes = ['post_type', 'display_type', 'columns', 'order', 'custom_field_name', 'custom_field_type', 'custom_field_order', 'item_margin', 'icon', 'icon_color'];
+            const expectedAttributes = ['post_type', 'display_type', 'columns', 'order', 'custom_field_name', 'custom_field_type', 'custom_field_order', 'item_margin', 'item_padding', 'border_color', 'icon', 'icon_color', 'heading', 'exclude_current', 'active_color', 'pagination', 'posts_per_page', 'load_more_text', 'load_more_bg_color', 'load_more_text_color'];
             expectedAttributes.forEach(attr => {
                 if (attributes[attr] === undefined) {
                     console.log(`Attribute ${attr} not found in shortcode`);
@@ -489,8 +595,18 @@ jQuery(document).ready(function($) {
             custom_field_order: 'ASC',
             exclude_ids: '',
             item_margin: '10px',
+            item_padding: '10px',
+            border_color: '#dddddd',
             icon: '',
-            icon_color: ''
+            icon_color: '',
+            heading: '',
+            exclude_current: 'no',
+            active_color: '#ff6600',
+            pagination: 'none',
+            posts_per_page: '10',
+            load_more_text: 'Load More',
+            load_more_bg_color: '#0073aa',
+            load_more_text_color: '#ffffff'
         };
 
         // Merge defaults with parsed attributes
@@ -525,11 +641,9 @@ jQuery(document).ready(function($) {
             }, 2000);
         }
         
-        // Check if we have folder data (either folder_slug or folder_slugs)
-        if (finalAttributes.folder_slug || finalAttributes.folder_slugs) {
-            // Set edit mode
-            $('#edit_mode').val('1');
-            $('#original_name').val(name);
+        // Set edit mode (folders are now optional, so we don't require them)
+        $('#edit_mode').val('1');
+        $('#original_name').val(name);
             
             // Clear existing excluded pages
             $('#excluded_pages_list').empty();
@@ -630,14 +744,70 @@ jQuery(document).ready(function($) {
                 }, 1300);
                 
                 setTimeout(() => {
-                    updateFieldWithAnimation($('#icon'), finalAttributes.icon);
-                    console.log('Set icon to:', finalAttributes.icon);
+                    updateFieldWithAnimation($('#item_padding'), finalAttributes.item_padding);
+                    console.log('Set item_padding to:', finalAttributes.item_padding);
+                }, 1400);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#border_color'), finalAttributes.border_color);
+                    $('#border_color_hex').val(finalAttributes.border_color);
+                    console.log('Set border_color to:', finalAttributes.border_color);
                 }, 1500);
                 
                 setTimeout(() => {
+                    updateFieldWithAnimation($('#icon'), finalAttributes.icon);
+                    console.log('Set icon to:', finalAttributes.icon);
+                }, 1600);
+                
+                setTimeout(() => {
                     updateFieldWithAnimation($('#icon_color'), finalAttributes.icon_color);
+                    $('#icon_color_hex').val(finalAttributes.icon_color);
                     console.log('Set icon_color to:', finalAttributes.icon_color);
-                }, 1800);
+                }, 1900);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#heading'), finalAttributes.heading);
+                    console.log('Set heading to:', finalAttributes.heading);
+                }, 2100);
+                
+                setTimeout(() => {
+                    $('#exclude_current').prop('checked', finalAttributes.exclude_current === 'yes');
+                    console.log('Set exclude_current to:', finalAttributes.exclude_current);
+                }, 2200);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#active_color'), finalAttributes.active_color);
+                    $('#active_color_hex').val(finalAttributes.active_color);
+                    console.log('Set active_color to:', finalAttributes.active_color);
+                }, 2300);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#pagination'), finalAttributes.pagination);
+                    $('#pagination').trigger('change'); // Trigger to show/hide options
+                    console.log('Set pagination to:', finalAttributes.pagination);
+                }, 2400);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#posts_per_page'), finalAttributes.posts_per_page);
+                    console.log('Set posts_per_page to:', finalAttributes.posts_per_page);
+                }, 2700);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#load_more_text'), finalAttributes.load_more_text);
+                    console.log('Set load_more_text to:', finalAttributes.load_more_text);
+                }, 3000);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#load_more_bg_color'), finalAttributes.load_more_bg_color);
+                    $('#load_more_bg_color_hex').val(finalAttributes.load_more_bg_color);
+                    console.log('Set load_more_bg_color to:', finalAttributes.load_more_bg_color);
+                }, 3100);
+                
+                setTimeout(() => {
+                    updateFieldWithAnimation($('#load_more_text_color'), finalAttributes.load_more_text_color);
+                    $('#load_more_text_color_hex').val(finalAttributes.load_more_text_color);
+                    console.log('Set load_more_text_color to:', finalAttributes.load_more_text_color);
+                }, 3200);
                 
                 // Log the values being set for each field
                 console.log('Setting field values:', {
@@ -650,7 +820,8 @@ jQuery(document).ready(function($) {
                     custom_field_order: finalAttributes.custom_field_order,
                     item_margin: finalAttributes.item_margin,
                     icon: finalAttributes.icon,
-                    icon_color: finalAttributes.icon_color
+                    icon_color: finalAttributes.icon_color,
+                    heading: finalAttributes.heading
                 });
             });
             
@@ -663,12 +834,34 @@ jQuery(document).ready(function($) {
             
             // Update form title and submit button
             $('#submit_button').text('Save Changes');
+            $('#create_new_button').show();
             
             console.log('Form populated with values:', finalAttributes);
-        } else {
-            console.error('Failed to parse shortcode attributes: folder_slug/folder_slugs is missing');
-            alert('Error: Could not parse the shortcode attributes. Please try again.');
-        }
+    });
+
+    // Create New button - reset form to create mode
+    $('#create_new_button').on('click', function() {
+        console.log('Create New button clicked');
+        resetToCreateMode();
+        $('#create_new_button').hide();
+        
+        // Clear all form fields
+        $('#shortcode_name').val('');
+        $('#item_margin').val('');
+        $('#icon').val('');
+        $('#icon_color').val('');
+        $('#heading').val('');
+        $('#exclude_ids').val('');
+        $('#excluded_pages_list').empty();
+        $('.folder-checklist input[type="checkbox"]').prop('checked', false);
+        
+        // Reset to default post type and trigger change to reload folders
+        $('#post_type').val('page').trigger('change');
+        
+        // Scroll to top of form
+        $('html, body').animate({
+            scrollTop: $('#aqm-sitemap-form').offset().top - 50
+        }, 500);
     });
 
     // Delete shortcode - use document delegation to handle dynamically added elements
@@ -751,4 +944,10 @@ jQuery(document).ready(function($) {
             localStorage.setItem('aqm-theme', 'light');
         }
     });
+    
+    // Load folders for the default post type on page load
+    // This is at the end to ensure all event handlers are set up first
+    if ($('#post_type').length) {
+        $('#post_type').trigger('change');
+    }
 });

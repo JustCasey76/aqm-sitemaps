@@ -724,6 +724,15 @@ select:focus, input:focus {
         flex: 1;
         min-width: 120px;
     }
+    
+    .aqm-main-content {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .aqm-left-column,
+    .aqm-right-column {
+        width: 100% !important;
+    }
 }
 
 /* Update Check Section */

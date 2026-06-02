@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AQM Sitemaps
  * Description: Enhanced sitemap plugin with folder selection and shortcode management
- * Version: 3.2.7
+ * Version: 3.8.4
  * Author: AQ Marketing
  * Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
  * GitHub Plugin URI: https://github.com/JustCasey76/aqm-sitemaps
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Version for cache busting
-define('AQM_SITEMAPS_VERSION', '3.2.7');
+define('AQM_SITEMAPS_VERSION', '3.8.4');
 
 // Set up text domain for translations
 function aqm_sitemaps_load_textdomain() {
@@ -25,8 +25,26 @@ function aqm_sitemaps_load_textdomain() {
 }
 add_action('init', 'aqm_sitemaps_load_textdomain');
 
-// Include the GitHub Updater class
-require_once plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
+/**
+ * Lightweight debug logger.
+ *
+ * All plugin logging routes through here so production sites stay quiet by
+ * default. To enable verbose logging, add define('AQM_SITEMAPS_DEBUG', true);
+ * to wp-config.php.
+ *
+ * @param string $message Message to write to the PHP error log.
+ */
+function aqm_sitemaps_log($message) {
+    if (defined('AQM_SITEMAPS_DEBUG') && AQM_SITEMAPS_DEBUG) {
+        call_user_func('error_log', '[AQM Sitemaps] ' . $message);
+    }
+}
+
+// Include the GitHub Updater class (guarded so a missing file can never fatal).
+$aqm_sitemaps_updater_class = plugin_dir_path(__FILE__) . 'includes/class-aqm-github-updater.php';
+if (file_exists($aqm_sitemaps_updater_class)) {
+    require_once $aqm_sitemaps_updater_class;
+}
 
 // Check if plugin needs reactivation after update
 function aqm_sitemaps_check_reactivation() {
@@ -42,15 +60,15 @@ function aqm_sitemaps_check_reactivation() {
         
         // If plugin is not active, reactivate it
         if (!is_plugin_active($plugin_basename)) {
-            error_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
+            aqm_sitemaps_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
             
             // Reactivate the plugin
             $result = activate_plugin($plugin_basename);
             
             if (is_wp_error($result)) {
-                error_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
+                aqm_sitemaps_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
             } else {
-                error_log('[AQM SITEMAPS] Plugin successfully reactivated');
+                aqm_sitemaps_log('[AQM SITEMAPS] Plugin successfully reactivated');
                 
                 // Set a transient to show a notice
                 set_transient('aqmsm_reactivated', true, 30);
@@ -64,10 +82,7 @@ function aqm_sitemaps_check_reactivation() {
 
 // Initialize the GitHub Updater
 function aqm_sitemaps_init_github_updater() {
-    // Log that we're initializing the updater
-    error_log('=========================================================');
-    error_log('[AQM SITEMAPS v' . AQM_SITEMAPS_VERSION . '] INITIALIZING GITHUB UPDATER');
-    error_log('=========================================================');
+    // Initialize the GitHub updater when its class is available.
     
     if (class_exists('AQM_Sitemaps\Updater\GitHub_Updater')) {
         try {
@@ -83,10 +98,10 @@ function aqm_sitemaps_init_github_updater() {
             // Check if we need to reactivate the plugin after an update
             aqm_sitemaps_check_reactivation();
         } catch (Exception $e) {
-            error_log('[AQM SITEMAPS] Error initializing updater: ' . $e->getMessage());
+            aqm_sitemaps_log('[AQM SITEMAPS] Error initializing updater: ' . $e->getMessage());
         }
     } else {
-        error_log('[AQM SITEMAPS] Updater class not found');
+        aqm_sitemaps_log('[AQM SITEMAPS] Updater class not found');
     }
 }
 add_action('admin_init', 'aqm_sitemaps_init_github_updater');
@@ -139,7 +154,7 @@ function aqm_sitemaps_reactivate_on_update($upgrader_object, $options) {
         return;
     }
     
-    error_log('[AQM SITEMAPS] Plugin update detected, checking activation state');
+    aqm_sitemaps_log('[AQM SITEMAPS] Plugin update detected, checking activation state');
     
     // Check if the plugin was active before the update
     if (get_option('aqm_sitemaps_was_active', false)) {
@@ -150,15 +165,15 @@ function aqm_sitemaps_reactivate_on_update($upgrader_object, $options) {
         
         // If plugin is not active, reactivate it
         if (!is_plugin_active($plugin_basename)) {
-            error_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
+            aqm_sitemaps_log('[AQM SITEMAPS] Plugin was active before update but is now inactive, reactivating');
             
             // Reactivate the plugin
             $result = activate_plugin($plugin_basename);
             
             if (is_wp_error($result)) {
-                error_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
+                aqm_sitemaps_log('[AQM SITEMAPS] Reactivation failed: ' . $result->get_error_message());
             } else {
-                error_log('[AQM SITEMAPS] Plugin successfully reactivated');
+                aqm_sitemaps_log('[AQM SITEMAPS] Plugin successfully reactivated');
                 
                 // Set a transient to show a notice
                 set_transient('aqmsm_reactivated', true, 30);
@@ -235,7 +250,7 @@ function aqm_sitemaps_handle_check_updates_ajax() {
     wp_clean_plugins_cache(true);
     
     // Log the manual update check
-    error_log('[AQM SITEMAPS] Manual update check triggered');
+    aqm_sitemaps_log('[AQM SITEMAPS] Manual update check triggered');
     
     // Send success response
     wp_send_json_success(array('message' => 'Update check complete'));
@@ -328,6 +343,19 @@ function aqm_sitemaps_enqueue_styles() {
 }
 add_action('wp_enqueue_scripts', 'aqm_sitemaps_enqueue_styles');
 
+// Register frontend pagination script (don't enqueue or localize here)
+function aqm_sitemaps_register_scripts() {
+    // Just register the pagination script
+    wp_register_script(
+        'aqm-sitemaps-pagination',
+        plugins_url('js/pagination.js', __FILE__),
+        array('jquery'),
+        AQM_SITEMAPS_VERSION,
+        true
+    );
+}
+add_action('wp_enqueue_scripts', 'aqm_sitemaps_register_scripts');
+
 // Register and enqueue admin styles
 function aqm_sitemaps_admin_styles($hook) {
     if ('toplevel_page_aqm-sitemaps' !== $hook) {
@@ -359,7 +387,7 @@ function migrate_old_shortcodes() {
         delete_option('aqm_saved_shortcodes');
         delete_option('aqm_saved_sitemap_shortcodes');
         
-        error_log('AQM Sitemaps: Migrated ' . count($old_shortcodes) . ' shortcodes to new option name');
+        aqm_sitemaps_log('AQM Sitemaps: Migrated ' . count($old_shortcodes) . ' shortcodes to new option name');
     }
 }
 
@@ -383,9 +411,9 @@ function aqm_sitemaps_activate() {
     delete_site_transient('update_plugins');
     
     // Log activation
-    error_log('=========================================================');
-    error_log('[AQM SITEMAPS] Plugin activated, version ' . AQM_SITEMAPS_VERSION);
-    error_log('=========================================================');
+    aqm_sitemaps_log('=========================================================');
+    aqm_sitemaps_log('[AQM SITEMAPS] Plugin activated, version ' . AQM_SITEMAPS_VERSION);
+    aqm_sitemaps_log('=========================================================');
 }
 register_activation_hook(__FILE__, 'aqm_sitemaps_activate');
 
@@ -395,9 +423,9 @@ function aqm_sitemaps_deactivate() {
     update_option('aqm_sitemaps_was_active', false);
     
     // Log deactivation
-    error_log('=========================================================');
-    error_log('[AQM SITEMAPS] Plugin deactivated');
-    error_log('=========================================================');
+    aqm_sitemaps_log('=========================================================');
+    aqm_sitemaps_log('[AQM SITEMAPS] Plugin deactivated');
+    aqm_sitemaps_log('=========================================================');
 }
 register_deactivation_hook(__FILE__, 'aqm_sitemaps_deactivate');
 
@@ -423,7 +451,7 @@ function aqm_sitemaps_page() {
     $saved_shortcodes = get_option('aqm_sitemaps_shortcodes', array());
     
     // Debug log
-    error_log('AQM Sitemaps: Number of saved shortcodes: ' . count($saved_shortcodes));
+    aqm_sitemaps_log('AQM Sitemaps: Number of saved shortcodes: ' . count($saved_shortcodes));
     
     // Debug setting is now controlled through code only
     $show_debug = false;
@@ -446,8 +474,6 @@ function aqm_sitemaps_page() {
             </div>
         </div>
         
-
-        
         <div class="aqm-main-content">
             <div class="aqm-left-column">
                 <div class="aqm-sitemap-generator">
@@ -460,7 +486,7 @@ function aqm_sitemaps_page() {
                             <div class="form-section content-settings">
                                 <h3>Content Settings</h3>
                                 <div class="form-group">
-                                    <label>Select Folders:</label>
+                                    <label>Select Folders (Optional):</label>
                                     <div class="folder-checklist">
                                         <p style="color:#666;font-style:italic;">Loading folders...</p>
                                     </div>
@@ -470,6 +496,7 @@ function aqm_sitemaps_page() {
                                     <label for="post_type">Post Type:</label>
                                     <select id="post_type" name="post_type">
                                         <option value="page">Pages</option>
+                                        <option value="post">Posts</option>
                                         <?php 
                                         // Get all public custom post types
                                         $post_types = get_post_types(array('public' => true, '_builtin' => false), 'objects');
@@ -540,8 +567,23 @@ function aqm_sitemaps_page() {
                                 
                                 <div class="form-group">
                                     <label for="item_margin">Item Bottom Margin:</label>
-                                    <input type="text" id="item_margin" name="item_margin" placeholder="e.g., 10px, 0.5em, etc.">
+                                    <input type="text" id="item_margin" name="item_margin" value="10px" placeholder="e.g., 10px, 0.5em, etc.">
                                     <div class="form-help">Set the bottom margin for each list item (e.g., 10px, 0.5em)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="item_padding">Item Bottom Padding:</label>
+                                    <input type="text" id="item_padding" name="item_padding" value="10px" placeholder="e.g., 10px, 0.5em, etc.">
+                                    <div class="form-help">Set the bottom padding for each list item (e.g., 10px, 0.5em)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="border_color">Border Color:</label>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="color" id="border_color" name="border_color" value="#dddddd">
+                                        <input type="text" id="border_color_hex" value="#dddddd" readonly style="width: 80px; font-family: monospace;">
+                                    </div>
+                                    <div class="form-help">Set the color of the border between items</div>
                                 </div>
                                 
                                 <div class="form-group">
@@ -552,8 +594,74 @@ function aqm_sitemaps_page() {
                                 
                                 <div class="form-group">
                                     <label for="icon_color">Icon Color:</label>
-                                    <input type="text" id="icon_color" name="icon_color" placeholder="e.g., #ff0000 or red">
-                                    <div class="form-help">Set the color of the icon (hex code or color name)</div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="color" id="icon_color" name="icon_color" value="#000000">
+                                        <input type="text" id="icon_color_hex" value="#000000" readonly style="width: 80px; font-family: monospace;">
+                                    </div>
+                                    <div class="form-help">Set the color of the icon</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="heading">Heading (Optional):</label>
+                                    <input type="text" id="heading" name="heading" placeholder="e.g., Quick Links">
+                                    <div class="form-help">Add an H6 heading before the list (leave empty for no heading)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="exclude_current">
+                                        <input type="checkbox" id="exclude_current" name="exclude_current" value="yes">
+                                        Exclude Current Page
+                                    </label>
+                                    <div class="form-help">Hide the current page from the list when viewing it</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="active_color">Active Page Color:</label>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="color" id="active_color" name="active_color" value="#ff6600">
+                                        <input type="text" id="active_color_hex" value="#ff6600" readonly style="width: 80px; font-family: monospace;">
+                                    </div>
+                                    <div class="form-help">Highlight color for the current page link (only if not excluded)</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="pagination">Pagination:</label>
+                                    <select id="pagination" name="pagination">
+                                        <option value="none">None (Show All)</option>
+                                        <option value="load_more">Load More Button</option>
+                                        <option value="infinite_scroll">Infinite Scroll</option>
+                                    </select>
+                                    <div class="form-help">Choose how to display posts (useful for large lists)</div>
+                                </div>
+                                
+                                <div class="form-group pagination-option" style="display:none;">
+                                    <label for="posts_per_page">Posts Per Page:</label>
+                                    <input type="number" id="posts_per_page" name="posts_per_page" value="10" min="1">
+                                    <div class="form-help">Number of posts to show initially</div>
+                                </div>
+                                
+                                <div class="form-group pagination-option load-more-option" style="display:none;">
+                                    <label for="load_more_text">Load More Button Text:</label>
+                                    <input type="text" id="load_more_text" name="load_more_text" value="Load More">
+                                    <div class="form-help">Text for the load more button</div>
+                                </div>
+                                
+                                <div class="form-group pagination-option load-more-option" style="display:none;">
+                                    <label for="load_more_bg_color">Button Background Color:</label>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="color" id="load_more_bg_color" name="load_more_bg_color" value="#0073aa">
+                                        <input type="text" id="load_more_bg_color_hex" value="#0073aa" readonly style="width: 80px; font-family: monospace;">
+                                    </div>
+                                    <div class="form-help">Background color for the load more button</div>
+                                </div>
+                                
+                                <div class="form-group pagination-option load-more-option" style="display:none;">
+                                    <label for="load_more_text_color">Button Text Color:</label>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="color" id="load_more_text_color" name="load_more_text_color" value="#ffffff">
+                                        <input type="text" id="load_more_text_color_hex" value="#ffffff" readonly style="width: 80px; font-family: monospace;">
+                                    </div>
+                                    <div class="form-help">Text color for the load more button</div>
                                 </div>
                                 
                                 <div class="form-group page-exclusions">
@@ -577,6 +685,7 @@ function aqm_sitemaps_page() {
 
                             <div class="form-footer">
                                 <button type="submit" id="submit_button" class="button button-primary">Generate Shortcode</button>
+                                <button type="button" id="create_new_button" class="button" style="display:none;">Create New</button>
                             </div>
                         </div>
                     </form>
@@ -621,7 +730,7 @@ function aqm_ensure_shortcode_params($shortcode, $params = array()) {
         if (strpos($shortcode, $param . '=') === false) {
             // Parameter doesn't exist, add it
             $shortcode = str_replace(']', ' ' . $param . '="' . $value . '"]', $shortcode);
-            error_log('Added ' . $param . ' parameter to shortcode: ' . $shortcode);
+            aqm_sitemaps_log('Added ' . $param . ' parameter to shortcode: ' . $shortcode);
         } else {
             // Parameter exists but might have an empty value, update it if value is provided
             if (!empty($value)) {
@@ -629,7 +738,7 @@ function aqm_ensure_shortcode_params($shortcode, $params = array()) {
                 $pattern = '/(' . $param . '=)["\']([^"\']*)["\']/i';
                 $replacement = '$1"' . $value . '"';
                 $shortcode = preg_replace($pattern, $replacement, $shortcode);
-                error_log('Updated ' . $param . ' parameter in shortcode: ' . $shortcode);
+                aqm_sitemaps_log('Updated ' . $param . ' parameter in shortcode: ' . $shortcode);
             }
         }
     }
@@ -639,44 +748,42 @@ function aqm_ensure_shortcode_params($shortcode, $params = array()) {
 
 // Save shortcode
 function aqm_save_shortcode() {
-    // Enable error reporting for debugging
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
+    // Debugging output is gated behind the AQM_SITEMAPS_DEBUG constant.
     
     // Log the raw POST data
-    error_log('AQM Sitemaps Raw POST: ' . print_r($_POST, true));
+    aqm_sitemaps_log('AQM Sitemaps Raw POST: ' . print_r($_POST, true));
     
     // Debug the icon and icon_color parameters
     if (isset($_POST['debug_icon'])) {
-        error_log('Icon from debug: ' . $_POST['debug_icon']);
+        aqm_sitemaps_log('Icon from debug: ' . $_POST['debug_icon']);
     }
     
     if (isset($_POST['debug_icon_color'])) {
-        error_log('Icon color from debug: ' . $_POST['debug_icon_color']);
+        aqm_sitemaps_log('Icon color from debug: ' . $_POST['debug_icon_color']);
     }
 
     // Check if this is an AJAX request
     if (!wp_doing_ajax()) {
-        error_log('AQM Sitemaps: Not an AJAX request');
+        aqm_sitemaps_log('AQM Sitemaps: Not an AJAX request');
         die('Invalid request method');
     }
 
     // Verify nonce first
     if (!isset($_POST['nonce'])) {
-        error_log('AQM Sitemaps: Nonce is missing');
+        aqm_sitemaps_log('AQM Sitemaps: Nonce is missing');
         wp_send_json_error('Security token is missing');
         wp_die();
     }
 
     if (!wp_verify_nonce($_POST['nonce'], 'aqm_sitemaps_nonce')) {
-        error_log('AQM Sitemaps: Invalid nonce');
+        aqm_sitemaps_log('AQM Sitemaps: Invalid nonce');
         wp_send_json_error('Invalid security token');
         wp_die();
     }
 
     // Check user capabilities
     if (!current_user_can('manage_options')) {
-        error_log('AQM Sitemaps: Insufficient permissions');
+        aqm_sitemaps_log('AQM Sitemaps: Insufficient permissions');
         wp_send_json_error('You do not have permission to perform this action');
         wp_die();
     }
@@ -701,11 +808,11 @@ function aqm_save_shortcode() {
     }
     
     // Log the icon and icon_color values
-    error_log('AQM Sitemaps: Icon value: ' . $icon);
-    error_log('AQM Sitemaps: Icon color value: ' . $icon_color);
+    aqm_sitemaps_log('AQM Sitemaps: Icon value: ' . $icon);
+    aqm_sitemaps_log('AQM Sitemaps: Icon color value: ' . $icon_color);
     
     // Log the sanitized data
-    error_log('AQM Sitemaps: Sanitized data - ' . print_r([
+    aqm_sitemaps_log('AQM Sitemaps: Sanitized data - ' . print_r([
         'name' => $name,
         'shortcode' => $shortcode,
         'edit_mode' => $edit_mode,
@@ -747,49 +854,56 @@ function aqm_save_shortcode() {
             unset($saved_shortcodes[$original_name]);
         }
 
-        // Get form field values for icon, icon_color, and item_margin
+        // Get form field values for all parameters that need to be ensured
         $icon_value = isset($_POST['icon']) ? sanitize_text_field($_POST['icon']) : '';
         $icon_color_value = isset($_POST['icon_color']) ? sanitize_text_field($_POST['icon_color']) : '';
         $item_margin_value = isset($_POST['item_margin']) ? sanitize_text_field($_POST['item_margin']) : '10px';
+        $heading_value = isset($_POST['heading']) ? sanitize_text_field($_POST['heading']) : '';
+        $exclude_current_value = isset($_POST['exclude_current']) ? 'yes' : 'no';
+        $active_color_value = isset($_POST['active_color']) ? sanitize_text_field($_POST['active_color']) : '#ff6600';
         
         // If item_margin is empty, set default value
         if (empty($item_margin_value)) {
             $item_margin_value = '10px';
         }
         
-        // Log the values we're going to use
-        error_log('Using values for shortcode parameters:');
-        error_log('icon: ' . $icon_value);
-        error_log('icon_color: ' . $icon_color_value);
-        error_log('item_margin: ' . $item_margin_value);
-        
         // Use our helper function to ensure parameters are included
-        $shortcode = aqm_ensure_shortcode_params($shortcode, array(
+        $params_to_ensure = array(
             'icon' => $icon_value,
             'icon_color' => $icon_color_value,
-            'item_margin' => $item_margin_value
-        ));
+            'item_margin' => $item_margin_value,
+            'exclude_current' => $exclude_current_value,
+            'active_color' => $active_color_value
+        );
         
-        error_log('Final shortcode after ensuring parameters: ' . $shortcode);
+        // Only add heading if it's not empty
+        if (!empty($heading_value)) {
+            $params_to_ensure['heading'] = $heading_value;
+        }
+        
+        $shortcode = aqm_ensure_shortcode_params($shortcode, $params_to_ensure);
         
         // Save the shortcode
         $saved_shortcodes[$name] = $shortcode;
 
         // Update option with error checking
+        // Note: update_option returns false if the value hasn't changed, so we need to check differently
         $update_result = update_option('aqm_sitemaps_shortcodes', $saved_shortcodes);
         
-        if ($update_result) {
-            error_log('AQM Sitemaps: Shortcode saved successfully - ' . $name);
+        // Verify the shortcode was actually saved by checking if it exists
+        $verify_saved = get_option('aqm_sitemaps_shortcodes', array());
+        if (isset($verify_saved[$name]) && $verify_saved[$name] === $shortcode) {
+            aqm_sitemaps_log('AQM Sitemaps: Shortcode saved successfully - ' . $name);
             wp_send_json_success(array(
                 'message' => 'Shortcode saved successfully',
                 'name' => $name
             ));
         } else {
-            error_log('AQM Sitemaps: Failed to update option');
+            aqm_sitemaps_log('AQM Sitemaps: Failed to verify saved shortcode');
             wp_send_json_error('Failed to save shortcode');
         }
     } catch (Exception $e) {
-        error_log('AQM Sitemaps Exception: ' . $e->getMessage());
+        aqm_sitemaps_log('AQM Sitemaps Exception: ' . $e->getMessage());
         wp_send_json_error('An unexpected error occurred: ' . $e->getMessage());
     }
 
@@ -825,6 +939,114 @@ function aqm_delete_shortcode() {
     wp_send_json_success();
 }
 add_action('wp_ajax_aqm_delete_shortcode', 'aqm_delete_shortcode');
+
+// AJAX handler for loading more posts
+function aqm_load_more_posts() {
+    // Simple verification - check that required parameters exist
+    if (!isset($_POST['page_ids']) || !isset($_POST['offset'])) {
+        wp_send_json_error('Missing required parameters');
+        return;
+    }
+    
+    // Get parameters
+    $page_ids = isset($_POST['page_ids']) ? json_decode(stripslashes($_POST['page_ids']), true) : array();
+    $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
+    $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 10;
+    $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'page';
+    $display_type = isset($_POST['display_type']) ? sanitize_text_field($_POST['display_type']) : 'columns';
+    $columns = isset($_POST['columns']) ? intval($_POST['columns']) : 2;
+    $icon = isset($_POST['icon']) ? sanitize_text_field($_POST['icon']) : '';
+    $icon_color = isset($_POST['icon_color']) ? sanitize_text_field($_POST['icon_color']) : '';
+    $item_margin = isset($_POST['item_margin']) ? sanitize_text_field($_POST['item_margin']) : '10px';
+    $disable_links = isset($_POST['disable_links']) ? $_POST['disable_links'] === '1' : false;
+    
+    // Get the posts for this batch
+    $batch_ids = array_slice($page_ids, $offset, $limit);
+    $posts = array();
+    
+    foreach ($batch_ids as $page_id) {
+        $post = get_post($page_id);
+        if ($post && $post->post_type == $post_type && $post->post_status == 'publish') {
+            $posts[] = $post;
+        }
+    }
+    
+    if (empty($posts)) {
+        wp_send_json_success(array(
+            'html' => '',
+            'has_more' => false
+        ));
+    }
+    
+    // Build HTML for the posts
+    $html = '';
+    
+    if ($display_type === 'inline') {
+        $links = array();
+        foreach ($posts as $post) {
+            if ($disable_links) {
+                $links[] = sprintf(
+                    '<span class="aqm-sitemap-item">%s</span>',
+                    esc_html($post->post_title)
+                );
+            } else {
+                $links[] = sprintf(
+                    '<a href="%s">%s</a>',
+                    esc_url(get_permalink($post->ID)),
+                    esc_html($post->post_title)
+                );
+            }
+        }
+        $html = implode(' ', $links);
+    } else {
+        // Column display - return items that will be distributed across columns
+        foreach ($posts as $post) {
+            // Prepare icon HTML if an icon is specified
+            $icon_html = '';
+            if (!empty($icon)) {
+                $icon_class = $icon;
+                if (strpos($icon, 'fa-solid') === false && strpos($icon, 'fas') === false) {
+                    if (strpos($icon, 'fa-') === 0) {
+                        $icon_class = 'fa-solid ' . $icon;
+                    }
+                }
+                $icon_html = sprintf('<i class="%s"></i>', esc_attr($icon_class));
+            }
+            
+            $item_style = '';
+            if (!empty($item_margin)) {
+                $item_style = ' style="margin-bottom: ' . esc_attr($item_margin) . ';"';
+            }
+            
+            if ($disable_links) {
+                $html .= sprintf(
+                    '<li%s>%s<span>%s</span></li>',
+                    $item_style,
+                    $icon_html,
+                    esc_html($post->post_title)
+                );
+            } else {
+                $html .= sprintf(
+                    '<li%s>%s<a href="%s">%s</a></li>',
+                    $item_style,
+                    $icon_html,
+                    esc_url(get_permalink($post->ID)),
+                    esc_html($post->post_title)
+                );
+            }
+        }
+    }
+    
+    $has_more = ($offset + $limit) < count($page_ids);
+    
+    wp_send_json_success(array(
+        'html' => $html,
+        'has_more' => $has_more,
+        'loaded' => $offset + count($posts)
+    ));
+}
+add_action('wp_ajax_aqm_load_more_posts', 'aqm_load_more_posts');
+add_action('wp_ajax_nopriv_aqm_load_more_posts', 'aqm_load_more_posts');
 
 // Get posts by post type for exclusion dropdown
 function aqm_get_posts_by_type() {
@@ -867,6 +1089,8 @@ add_action('wp_ajax_aqm_get_posts_by_type', 'aqm_get_posts_by_type');
 
 // Get folders that contain posts of a specific post type
 function aqm_get_folders_by_post_type() {
+    global $wpdb;
+    
     if (!check_ajax_referer('aqm_sitemaps_nonce', 'nonce', false)) {
         wp_send_json_error('Invalid nonce');
     }
@@ -883,73 +1107,86 @@ function aqm_get_folders_by_post_type() {
         wp_send_json_error('Invalid post type');
     }
     
+    // DIAGNOSTIC: Find all options that might contain folder data
+    $all_folder_options = $wpdb->get_results(
+        "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE '%folder%' LIMIT 20"
+    );
+    
     $folders_with_posts = array();
     
-    // Premio Folders stores data in 'folders_settings' option as JSON
-    $premio_folders_json = get_option('folders_settings', '');
+    // Premio Folders might use different taxonomy names for different post types
+    // Try both 'folder' and post-type-specific taxonomy names
+    $possible_taxonomies = array(
+        $post_type . '_folder',  // e.g., team-member_folder
+        str_replace('-', '_', $post_type) . '_folder',  // e.g., team_member_folder
+        'folder',
+        'folders_' . $post_type
+    );
     
-    if (!empty($premio_folders_json)) {
-        $premio_folders = json_decode($premio_folders_json, true);
-        
-        if (is_array($premio_folders)) {
-            foreach ($premio_folders as $folder_data) {
-                if (isset($folder_data['post_type']) && $folder_data['post_type'] === $post_type) {
-                    // Found folders for this post type
-                    if (isset($folder_data['folders']) && is_array($folder_data['folders'])) {
-                        foreach ($folder_data['folders'] as $folder) {
-                            if (isset($folder['name'])) {
-                                // Create a slug from the name
-                                $slug = sanitize_title($folder['name']);
-                                
-                                $folders_with_posts[] = array(
-                                    'slug' => $slug,
-                                    'name' => $folder['name'],
-                                    'premio_folder' => true
-                                );
-                            }
-                        }
-                    }
-                    break;
-                }
+    $all_folders = array();
+    $used_taxonomy = '';
+    
+    foreach ($possible_taxonomies as $taxonomy) {
+        if (taxonomy_exists($taxonomy)) {
+            $terms = get_terms(array(
+                'taxonomy' => $taxonomy,
+                'hide_empty' => false,
+            ));
+            
+            if (!empty($terms) && !is_wp_error($terms)) {
+                $all_folders = $terms;
+                $used_taxonomy = $taxonomy;
+                break;
             }
         }
     }
     
-    // If no Premio Folders found, fall back to standard taxonomy approach
-    if (empty($folders_with_posts)) {
+    // If no specific taxonomy found, fall back to 'folder'
+    if (empty($all_folders)) {
         $all_folders = get_terms(array(
             'taxonomy' => 'folder',
             'hide_empty' => false,
         ));
-        
-        if (!empty($all_folders) && !is_wp_error($all_folders)) {
-            foreach ($all_folders as $folder) {
-                $args = array(
-                    'post_type' => $post_type,
-                    'post_status' => 'publish',
-                    'posts_per_page' => 1,
-                    'fields' => 'ids',
-                    'tax_query' => array(
-                        array(
-                            'taxonomy' => 'folder',
-                            'field' => 'term_id',
-                            'terms' => $folder->term_id,
-                        ),
+        $used_taxonomy = 'folder';
+    }
+    
+    $debug_folders = array();
+    
+    if (!empty($all_folders) && !is_wp_error($all_folders)) {
+        foreach ($all_folders as $folder) {
+            // Check if this folder has any posts of the specified type
+            $args = array(
+                'post_type' => $post_type,
+                'post_status' => 'publish',
+                'posts_per_page' => 1,
+                'fields' => 'ids',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => $used_taxonomy,
+                        'field' => 'term_id',
+                        'terms' => $folder->term_id,
                     ),
+                ),
+            );
+            
+            $posts_in_folder = get_posts($args);
+            
+            // Debug info for each folder
+            $debug_folders[] = array(
+                'name' => $folder->name,
+                'slug' => $folder->slug,
+                'term_id' => $folder->term_id,
+                'post_count' => count($posts_in_folder),
+                'has_posts' => !empty($posts_in_folder)
+            );
+            
+            // If this folder has posts of this type, include it
+            if (!empty($posts_in_folder)) {
+                $folders_with_posts[] = array(
+                    'slug' => $folder->slug,
+                    'name' => $folder->name,
+                    'term_id' => $folder->term_id
                 );
-                
-                $posts_in_folder = get_posts($args);
-                
-                if (!empty($posts_in_folder)) {
-                    $folder_name = str_replace('-', ' ', $folder->name);
-                    $folder_name = ucwords($folder_name);
-                    
-                    $folders_with_posts[] = array(
-                        'slug' => $folder->slug,
-                        'name' => $folder_name,
-                        'term_id' => $folder->term_id
-                    );
-                }
             }
         }
     }
@@ -957,7 +1194,12 @@ function aqm_get_folders_by_post_type() {
     wp_send_json_success(array(
         'folders' => $folders_with_posts,
         'post_type' => $post_type,
-        'source' => !empty($folders_with_posts) && isset($folders_with_posts[0]['premio_folder']) ? 'premio_settings' : 'taxonomy'
+        'debug' => array(
+            'used_taxonomy' => $used_taxonomy,
+            'all_folders_count' => count($all_folders),
+            'folders_with_posts_count' => count($folders_with_posts),
+            'folder_details' => $debug_folders
+        )
     ));
 }
 add_action('wp_ajax_aqm_get_folders_by_post_type', 'aqm_get_folders_by_post_type');
@@ -1023,9 +1265,19 @@ function display_enhanced_page_sitemap($atts) {
         'exclude_ids' => '', // Parameter to exclude pages by ID
         'show_all' => 'no', // New parameter to show all pages
         'item_margin' => '10px', // New parameter for item bottom margin
+        'item_padding' => '10px', // New parameter for item bottom padding
+        'border_color' => '#dddddd', // New parameter for border color
         'icon' => '', // New parameter for Font Awesome icon
         'icon_color' => '', // New parameter for icon color
-        'disable_links' => 'no' // New parameter to disable links and show only titles
+        'heading' => '', // New parameter for optional H6 heading
+        'exclude_current' => 'no', // Exclude current page from list
+        'active_color' => '#ff6600', // Color for current/active page link
+        'disable_links' => 'no', // New parameter to disable links and show only titles
+        'pagination' => 'none', // Pagination type: none, load_more, infinite_scroll
+        'posts_per_page' => '-1', // Number of posts to show initially (-1 for all)
+        'load_more_text' => 'Load More', // Text for load more button
+        'load_more_bg_color' => '#0073aa', // Background color for load more button
+        'load_more_text_color' => '#ffffff' // Text color for load more button
     ), $atts, 'sitemap_page');
 
     // Sanitize attributes
@@ -1048,14 +1300,40 @@ function display_enhanced_page_sitemap($atts) {
     $custom_field_order = in_array(strtoupper($atts['custom_field_order']), array('ASC', 'DESC')) ? strtoupper($atts['custom_field_order']) : 'ASC';
     $show_all = in_array(strtolower($atts['show_all']), array('yes', 'true', '1')) ? true : false;
     $item_margin = sanitize_text_field($atts['item_margin']);
+    $item_padding = sanitize_text_field($atts['item_padding']);
+    $border_color = sanitize_hex_color($atts['border_color']) ?: sanitize_text_field($atts['border_color']);
     $icon = sanitize_text_field($atts['icon']);
     $icon_color = sanitize_hex_color($atts['icon_color']) ?: sanitize_text_field($atts['icon_color']);
+    $heading = sanitize_text_field($atts['heading']);
+    $exclude_current = in_array(strtolower($atts['exclude_current']), array('yes', 'true', '1')) ? true : false;
+    // Sanitize active_color - try hex first, then text field, then default
+    $active_color_raw = !empty($atts['active_color']) ? $atts['active_color'] : '#ff6600';
+    $active_color = sanitize_hex_color($active_color_raw);
+    if (!$active_color) {
+        $active_color = sanitize_text_field($active_color_raw);
+    }
+    if (empty($active_color)) {
+        $active_color = '#ff6600';
+    }
     $disable_links = in_array(strtolower($atts['disable_links']), array('yes', 'true', '1')) ? true : false;
+    $pagination = in_array($atts['pagination'], array('none', 'load_more', 'infinite_scroll')) ? $atts['pagination'] : 'none';
+    $posts_per_page = intval($atts['posts_per_page']);
+    $load_more_text = sanitize_text_field($atts['load_more_text']);
+    $load_more_bg_color = sanitize_hex_color($atts['load_more_bg_color']) ?: '#0073aa';
+    $load_more_text_color = sanitize_hex_color($atts['load_more_text_color']) ?: '#ffffff';
     
     // Ensure item_margin is not empty
     if (empty($item_margin)) {
         $item_margin = '10px';
     }
+    
+    // Ensure load_more_text is not empty
+    if (empty($load_more_text)) {
+        $load_more_text = 'Load More';
+    }
+    
+    // Get current page ID
+    $current_page_id = get_queried_object_id();
     
     // Process exclude IDs
     $exclude_ids = array();
@@ -1065,6 +1343,13 @@ function display_enhanced_page_sitemap($atts) {
             $exclude_ids = array_map('intval', explode(',', $exclude_ids_raw));
             $exclude_ids = array_filter($exclude_ids); // Remove any zero/invalid IDs
         }
+    }
+    
+    // Add current page to exclude list if exclude_current is enabled
+    if ($exclude_current && $current_page_id) {
+        $exclude_ids[] = intval($current_page_id);
+        $exclude_ids = array_unique($exclude_ids);
+        $exclude_ids = array_values($exclude_ids); // Re-index array
     }
     
     // Debug information
@@ -1129,22 +1414,65 @@ function display_enhanced_page_sitemap($atts) {
         }
     } else {
         // Check if folder slug or slugs are empty when not showing all
+        // If no folders provided, show all posts of the specified type
         if (empty($folder_slug) && empty($folder_slugs)) {
-            if ($show_debug) {
-                return $debug . '<p>Error: No folder_slug(s) provided in shortcode and show_all is not enabled.</p>';
+            // Get order clause
+            $order_clause = aqm_build_order_clause($order, $custom_field_name, $custom_field_type, $custom_field_order);
+            
+            // Query for all published posts of the specified type
+            $all_posts_query = "SELECT {$wpdb->posts}.ID FROM {$wpdb->posts}";
+            $all_posts_query .= $order_clause['join'];
+            $all_posts_query .= $wpdb->prepare(" WHERE {$wpdb->posts}.post_type = %s AND {$wpdb->posts}.post_status = 'publish'", $post_type);
+            
+            // Add exclude IDs if any
+            if (!empty($exclude_ids)) {
+                $exclude_ids_str = implode(',', array_map('intval', $exclude_ids));
+                $all_posts_query .= " AND {$wpdb->posts}.ID NOT IN ({$exclude_ids_str})";
             }
-            return '<p>No pages found.</p>';
-        }
-        
-        $folder_terms = array();
-        $all_page_ids = array();
-        
-        // Handle multiple folder slugs (comma separated)
-        if (!empty($folder_slugs)) {
+            
+            // Add ordering
+            $all_posts_query .= $order_clause['orderby'];
+            
+            // Get the final list of post IDs
+            $page_ids = $wpdb->get_col($all_posts_query);
+            
+            if ($show_debug) {
+                $debug .= '<div style="background:#f5f5f5;border:1px solid #ccc;padding:10px;margin-bottom:20px;font-family:monospace;">';
+                $debug .= '<p><strong>No Folders Mode:</strong> Getting all published ' . esc_html($post_type) . ' posts</p>';
+                $debug .= '</div>';
+            }
+        } else {
+            // Folders are provided, process them
+            $folder_terms = array();
+            $all_page_ids = array();
+            
+            // Determine the correct taxonomy to use based on post type
+            $folder_taxonomy = 'folder'; // default for pages
+            if ($post_type !== 'page') {
+                // Try multiple possible taxonomy formats for custom post types
+                $possible_taxonomies = array(
+                    $post_type . '_folder',  // e.g., product_folder
+                    str_replace('-', '_', $post_type) . '_folder',  // e.g., custom_post_folder
+                    'folder_' . $post_type,  // e.g., folder_product
+                    'folders_' . $post_type,  // e.g., folders_product
+                    $post_type . '-category',  // e.g., product-category
+                    $post_type . '_category',  // e.g., product_category
+                );
+                
+                foreach ($possible_taxonomies as $taxonomy) {
+                    if (taxonomy_exists($taxonomy)) {
+                        $folder_taxonomy = $taxonomy;
+                        break;
+                    }
+                }
+            }
+            
+            // Handle multiple folder slugs (comma separated)
+            if (!empty($folder_slugs)) {
             $slug_array = array_map('trim', explode(',', $folder_slugs));
             
             foreach ($slug_array as $slug) {
-                $term = get_term_by('slug', $slug, 'folder');
+                $term = get_term_by('slug', $slug, $folder_taxonomy);
                 if ($term) {
                     $folder_terms[] = $term;
                 }
@@ -1152,7 +1480,7 @@ function display_enhanced_page_sitemap($atts) {
         }
         // Handle single folder slug for backward compatibility
         elseif (!empty($folder_slug)) {
-            $term = get_term_by('slug', $folder_slug, 'folder');
+            $term = get_term_by('slug', $folder_slug, $folder_taxonomy);
             if ($term) {
                 $folder_terms[] = $term;
             }
@@ -1182,9 +1510,30 @@ function display_enhanced_page_sitemap($atts) {
             $debug .= '</div>';
         }
         
+        // Determine the correct taxonomy to use based on post type
+        $folder_taxonomy = 'folder'; // default for pages
+        if ($post_type !== 'page') {
+            // Try multiple possible taxonomy formats for custom post types
+            $possible_taxonomies = array(
+                $post_type . '_folder',  // e.g., product_folder
+                str_replace('-', '_', $post_type) . '_folder',  // e.g., custom_post_folder
+                'folder_' . $post_type,  // e.g., folder_product
+                'folders_' . $post_type,  // e.g., folders_product
+                $post_type . '-category',  // e.g., product-category
+                $post_type . '_category',  // e.g., product_category
+            );
+            
+            foreach ($possible_taxonomies as $taxonomy) {
+                if (taxonomy_exists($taxonomy)) {
+                    $folder_taxonomy = $taxonomy;
+                    break;
+                }
+            }
+        }
+        
         // Get pages from all selected folders
         foreach ($folder_terms as $folder_term) {
-            $folder_page_ids = get_objects_in_term($folder_term->term_id, 'folder');
+            $folder_page_ids = get_objects_in_term($folder_term->term_id, $folder_taxonomy);
             $all_page_ids = array_merge($all_page_ids, $folder_page_ids);
         }
         
@@ -1213,6 +1562,7 @@ function display_enhanced_page_sitemap($atts) {
             // Get the final list of page IDs
             $page_ids = $wpdb->get_col($published_query);
         }
+        } // End of else block for folder processing
     }
     
     // Debug page IDs
@@ -1254,6 +1604,20 @@ function display_enhanced_page_sitemap($atts) {
         return '<p>No pages found.</p>';
     }
     
+    // Store total count before pagination
+    $total_posts = count($pages);
+    $all_page_ids_json = json_encode($page_ids);
+    
+    // Apply pagination if enabled
+    $has_more = false;
+    if ($pagination !== 'none' && $posts_per_page > 0) {
+        $pages = array_slice($pages, 0, $posts_per_page);
+        $has_more = $total_posts > $posts_per_page;
+    }
+    
+    // Generate unique ID for this sitemap instance
+    $sitemap_id = 'aqm-sitemap-' . uniqid();
+    
     // Build output
     $output = '';
     if ($show_debug) {
@@ -1263,71 +1627,110 @@ function display_enhanced_page_sitemap($atts) {
     // Create wrapper with classes
     $classes = array('aqm-sitemap');
     if ($display_type === 'columns') {
-        $classes[] = 'columns-' . esc_attr($columns);
+        $classes[] = 'aqm-columns-' . esc_attr($columns);
     } else {
         $classes[] = 'inline';
     }
     
-    $output .= '<div class="' . esc_attr(implode(' ', $classes)) . '">';
+    // Add inline CSS custom properties for styling
+    $style_attr = '';
+    $styles = array();
+    if (!empty($icon_color)) {
+        $styles[] = '--icon-color: ' . esc_attr($icon_color);
+    }
+    if (!empty($item_margin)) {
+        $styles[] = '--item-margin: ' . esc_attr($item_margin);
+    }
+    if (!empty($item_padding)) {
+        $styles[] = '--item-padding: ' . esc_attr($item_padding);
+    }
+    if (!empty($border_color)) {
+        $styles[] = '--border-color: ' . esc_attr($border_color);
+    }
+    if (!empty($active_color)) {
+        $styles[] = '--active-color: ' . esc_attr($active_color);
+    }
+    if (!empty($styles)) {
+        $style_attr = ' style="' . implode('; ', $styles) . ';"';
+    }
+    
+    // Add data attributes
+    $data_attrs = '';
+    // Always add post-type for CSS targeting
+    $data_attrs .= ' data-post-type="' . esc_attr($post_type) . '"';
+    
+    // Add pagination data attributes if enabled
+    if ($pagination !== 'none') {
+        $data_attrs .= ' id="' . esc_attr($sitemap_id) . '"';
+        $data_attrs .= ' data-pagination="' . esc_attr($pagination) . '"';
+        $data_attrs .= ' data-loaded="' . esc_attr(count($pages)) . '"';
+        $data_attrs .= ' data-total="' . esc_attr($total_posts) . '"';
+        $data_attrs .= ' data-page-ids="' . esc_attr($all_page_ids_json) . '"';
+        $data_attrs .= ' data-display-type="' . esc_attr($display_type) . '"';
+        $data_attrs .= ' data-columns="' . esc_attr($columns) . '"';
+        $data_attrs .= ' data-icon="' . esc_attr($icon) . '"';
+        $data_attrs .= ' data-icon-color="' . esc_attr($icon_color) . '"';
+        $data_attrs .= ' data-item-margin="' . esc_attr($item_margin) . '"';
+        $data_attrs .= ' data-disable-links="' . esc_attr($disable_links ? '1' : '0') . '"';
+    }
+    
+    $output .= '<div class="' . esc_attr(implode(' ', $classes)) . '"' . $style_attr . $data_attrs . '>';
+    
+    // Add optional H6 heading before the list
+    if (!empty($heading)) {
+        $output .= '<h6 class="aqm-sitemap-heading">' . esc_html($heading) . '</h6>';
+    }
     
     // For inline display
     if ($display_type === 'inline') {
         $links = array();
         foreach ($pages as $page) {
+            $is_current = (intval($page->ID) === intval($current_page_id));
+            $active_style = $is_current ? ' style="color: ' . esc_attr($active_color) . ' !important;"' : '';
+            $active_class = $is_current ? ' class="aqm-active-page"' : '';
+            
             if ($disable_links) {
                 $links[] = sprintf(
-                    '<span class="aqm-sitemap-item">%s</span>',
+                    '<span class="aqm-sitemap-item"%s%s>%s</span>',
+                    $active_class,
+                    $active_style,
                     esc_html($page->post_title)
                 );
             } else {
                 $links[] = sprintf(
-                    '<a href="%s">%s</a>',
+                    '<a href="%s"%s%s>%s</a>',
                     esc_url(get_permalink($page->ID)),
+                    $active_class,
+                    $active_style,
                     esc_html($page->post_title)
                 );
             }
         }
         $output .= implode(' ', $links);
-    } 
-    // For column display
-    else {
-        // Calculate items per column for balanced distribution
+    } else {
+        // Column display
         $total_items = count($pages);
         $items_per_column = ceil($total_items / $columns);
         
-        // Create column layout container
-        $output .= '<div class="sitemap-columns-container">';
+        $output .= '<div class="aqm-sitemap-columns-container">';
         
-        // Distribute pages across columns (top to bottom ordering)
         for ($col = 0; $col < $columns; $col++) {
-            // Calculate start index for this column
-            $start_idx = $col * $items_per_column;
+            $start = $col * $items_per_column;
+            $column_pages = array_slice($pages, $start, $items_per_column);
             
-            // Skip if no more pages
-            if ($start_idx >= $total_items) continue;
-            
-            // Column width
-            $col_width = (100 / $columns);
-            
-            // Start column
-            $output .= '<div class="sitemap-column">';
-            // Start unordered list
-            $output .= '<ul>';
-            
-            // Add pages for this column
-            for ($i = 0; $i < $items_per_column; $i++) {
-                $idx = $start_idx + $i;
-                if ($idx < $total_items) {
+            if (!empty($column_pages)) {
+                $output .= '<div class="aqm-sitemap-column">';
+                $output .= '<ul>';
+                
+                foreach ($column_pages as $page) {
+                    // Check if this is the current page
+                    $is_current = (intval($page->ID) === intval($current_page_id));
+                    $active_style = $is_current ? ' style="color: ' . esc_attr($active_color) . ' !important;"' : '';
+                    $active_class = $is_current ? ' class="aqm-active-page"' : '';
+                    
                     // Prepare icon HTML if an icon is specified
                     $icon_html = '';
                     if (!empty($icon)) {
-                        $icon_style = 'margin-right:5px;';
-                        
-                        // Add color if specified
-                        if (!empty($icon_color)) {
-                            $icon_style .= 'color:' . esc_attr($icon_color) . ';';
-                        }
-                        
                         // Use an i tag with fa-solid class prefix
                         // Make sure we have the fa-solid prefix for Font Awesome 6 compatibility
                         $icon_class = $icon;
@@ -1337,40 +1740,66 @@ function display_enhanced_page_sitemap($atts) {
                                 $icon_class = 'fa-solid ' . $icon;
                             }
                         }
-                        $icon_html = sprintf('<i class="%s" style="%s"></i>', esc_attr($icon_class), $icon_style);
+                        $icon_html = sprintf('<i class="%s"></i>', esc_attr($icon_class));
                     }
                     
                     if ($disable_links) {
                         $output .= sprintf(
-                            '<li style="margin-bottom:%s;"><span class="aqm-sitemap-item">%s%s</span></li>',
-                            esc_attr($item_margin),
+                            '<li><span class="aqm-sitemap-item"%s%s>%s%s</span></li>',
+                            $active_class,
+                            $active_style,
                             $icon_html,
-                            esc_html($pages[$idx]->post_title)
+                            esc_html($page->post_title)
                         );
                     } else {
                         $output .= sprintf(
-                            '<li style="margin-bottom:%s;"><a href="%s">%s%s</a></li>',
-                            esc_attr($item_margin),
-                            esc_url(get_permalink($pages[$idx]->ID)),
+                            '<li><a href="%s"%s%s>%s%s</a></li>',
+                            esc_url(get_permalink($page->ID)),
+                            $active_class,
+                            $active_style,
                             $icon_html,
-                            esc_html($pages[$idx]->post_title)
+                            esc_html($page->post_title)
                         );
                     }
                 }
+                
+                $output .= '</ul>';
+                $output .= '</div>';
             }
-            
-            // End unordered list
-            $output .= '</ul>';
-            // End column
-            $output .= '</div>';
         }
         
-        // End column layout
         $output .= '</div>';
+    }
+    
+    // Add pagination controls if needed
+    if ($pagination !== 'none' && $has_more) {
+        if ($pagination === 'load_more') {
+            $button_style = sprintf(
+                'background-color: %s; color: %s;',
+                esc_attr($load_more_bg_color),
+                esc_attr($load_more_text_color)
+            );
+            $output .= '<div class="aqm-load-more-container">';
+            $output .= '<button class="aqm-load-more-btn" style="' . $button_style . '" data-sitemap-id="' . esc_attr($sitemap_id) . '">' . esc_html($load_more_text) . '</button>';
+            $output .= '<span class="aqm-loading" style="display:none;">Loading...</span>';
+            $output .= '</div>';
+        } elseif ($pagination === 'infinite_scroll') {
+            $output .= '<div class="aqm-infinite-scroll-trigger" data-sitemap-id="' . esc_attr($sitemap_id) . '" style="height:1px;"></div>';
+            $output .= '<div class="aqm-loading-indicator" style="display:none;text-align:center;padding:20px;">Loading more...</div>';
+        }
     }
     
     // Close main wrapper
     $output .= '</div>';
+    
+    // Enqueue and localize frontend pagination script if pagination is enabled
+    if ($pagination !== 'none') {
+        wp_enqueue_script('aqm-sitemaps-pagination');
+        
+        wp_localize_script('aqm-sitemaps-pagination', 'aqmSitemapsPagination', array(
+            'ajaxurl' => admin_url('admin-ajax.php')
+        ));
+    }
     
     // Remove wpautop and shortcode_unautop filters to prevent unwanted <p> tags
     remove_filter('the_content', 'wpautop');

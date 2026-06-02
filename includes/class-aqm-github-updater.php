@@ -66,6 +66,17 @@ class GitHub_Updater {
     }
 
     /**
+     * Debug logger — gated behind the AQM_SITEMAPS_DEBUG constant so production stays quiet.
+     *
+     * @param string $message Message to write to the PHP error log.
+     */
+    private function log($message) {
+        if (defined('AQM_SITEMAPS_DEBUG') && AQM_SITEMAPS_DEBUG) {
+            error_log('[AQM Sitemaps] ' . $message);
+        }
+    }
+
+    /**
      * Add "Check for Updates" link to plugin actions
      * 
      * @param array $links Existing action links
@@ -90,7 +101,7 @@ class GitHub_Updater {
         }
         
         // Log the transient object state
-        error_log('AQM Sitemaps: Transient state: ' . (is_object($transient) ? 'is object' : 'not object'));
+        $this->log('Transient state: ' . (is_object($transient) ? 'is object' : 'not object'));
         
         if (!isset($transient->checked)) {
             $transient->checked = array();
@@ -129,15 +140,15 @@ class GitHub_Updater {
             $obj->package = $update_data['download_url'];
             
             // Log the package URL
-            error_log('AQM Sitemaps: Using package URL: ' . $obj->package);
+            $this->log('Using package URL: ' . $obj->package);
             
             // Verify the package URL is accessible
             $test_response = wp_remote_head($obj->package, array('timeout' => 5));
             if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
-                error_log('AQM Sitemaps: Package URL is not accessible, trying fallback URL');
+                $this->log('Package URL is not accessible, trying fallback URL');
                 // Fallback to a direct GitHub download URL
                 $obj->package = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/v' . $update_data['version'] . '.zip';
-                error_log('AQM Sitemaps: Using fallback package URL: ' . $obj->package);
+                $this->log('Using fallback package URL: ' . $obj->package);
             }
             
             // Add to the response array
@@ -148,12 +159,12 @@ class GitHub_Updater {
             $transient->response[$this->plugin_basename] = $obj;
             
             // Log that we found an update
-            error_log('AQM Sitemaps: Update available - ' . $this->current_version . ' -> ' . $update_data['version']);
+            $this->log('Update available - ' . $this->current_version . ' -> ' . $update_data['version']);
         } else {
             // Log that no update was found
-            error_log('AQM Sitemaps: No update available or unable to check - Current version: ' . $this->current_version);
+            $this->log('No update available or unable to check - Current version: ' . $this->current_version);
             if ($update_data) {
-                error_log('AQM Sitemaps: Latest version from GitHub: ' . $update_data['version']);
+                $this->log('Latest version from GitHub: ' . $update_data['version']);
             }
         }
         
@@ -170,19 +181,19 @@ class GitHub_Updater {
         // Force clear cache when manually checking for updates
         if ($force_check || (isset($_GET['aqm_checked']) && $_GET['aqm_checked'] === '1')) {
             delete_transient($this->transient_name);
-            error_log('AQM Sitemaps: Forcing fresh update check from GitHub');
+            $this->log('Forcing fresh update check from GitHub');
         } else {
             // Check cache first
             $cached_data = get_transient($this->transient_name);
             if ($cached_data !== false) {
-                error_log('AQM Sitemaps: Using cached update data');
+                $this->log('Using cached update data');
                 return $cached_data;
             }
         }
         
         // Get latest release from GitHub API
         $api_url = 'https://api.github.com/repos/' . $this->github_username . '/' . $this->github_repository . '/releases/latest';
-        error_log('AQM Sitemaps: Checking GitHub API: ' . $api_url);
+        $this->log('Checking GitHub API: ' . $api_url);
         
         $response = wp_remote_get($api_url, array(
             'headers' => array(
@@ -194,38 +205,38 @@ class GitHub_Updater {
         ));
         
         if (is_wp_error($response)) {
-            error_log('AQM Sitemaps: GitHub API Error: ' . $response->get_error_message());
-            error_log('AQM Sitemaps: Error code: ' . $response->get_error_code());
+            $this->log('GitHub API Error: ' . $response->get_error_message());
+            $this->log('Error code: ' . $response->get_error_code());
             return false;
         } else if (wp_remote_retrieve_response_code($response) !== 200) {
             $status_code = wp_remote_retrieve_response_code($response);
             $response_body = wp_remote_retrieve_body($response);
-            error_log('AQM Sitemaps: GitHub API returned status code: ' . $status_code);
-            error_log('AQM Sitemaps: Response body: ' . $response_body);
+            $this->log('GitHub API returned status code: ' . $status_code);
+            $this->log('Response body: ' . $response_body);
             return false;
         }
         
-        error_log('AQM Sitemaps: GitHub API request successful');
+        $this->log('GitHub API request successful');
         
         $release_data = json_decode(wp_remote_retrieve_body($response), true);
         
         if (empty($release_data)) {
-            error_log('AQM Sitemaps: Empty release data from GitHub');
+            $this->log('Empty release data from GitHub');
             return false;
         }
         
         if (!isset($release_data['tag_name'])) {
-            error_log('AQM Sitemaps: No tag_name found in GitHub release data');
-            error_log('AQM Sitemaps: Release data keys: ' . implode(', ', array_keys($release_data)));
+            $this->log('No tag_name found in GitHub release data');
+            $this->log('Release data keys: ' . implode(', ', array_keys($release_data)));
             return false;
         }
         
-        error_log('AQM Sitemaps: Found GitHub release with tag: ' . $release_data['tag_name']);
+        $this->log('Found GitHub release with tag: ' . $release_data['tag_name']);
         
         // Format version number (remove 'v' prefix if present)
         $version = ltrim($release_data['tag_name'], 'v');
-        error_log('AQM Sitemaps: Formatted version: ' . $version);
-        error_log('AQM Sitemaps: Original tag name: ' . $release_data['tag_name']);
+        $this->log('Formatted version: ' . $version);
+        $this->log('Original tag name: ' . $release_data['tag_name']);
         
         // Use GitHub's zipball_url which is more reliable than constructing our own URL
         $download_url = isset($release_data['zipball_url']) ? $release_data['zipball_url'] : '';
@@ -238,25 +249,25 @@ class GitHub_Updater {
             
             // First try with the exact tag name from the release
             $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $release_data['tag_name'] . '.zip';
-            error_log('AQM Sitemaps: Zipball URL not found, trying primary fallback URL: ' . $download_url);
+            $this->log('Zipball URL not found, trying primary fallback URL: ' . $download_url);
             
             // Test if the URL is accessible
             $test_response = wp_remote_head($download_url, array('timeout' => 5));
             if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
                 // Try with 'v' prefix if not already there
                 $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $tag_with_v . '.zip';
-                error_log('AQM Sitemaps: Primary fallback failed, trying with v-prefix: ' . $download_url);
+                $this->log('Primary fallback failed, trying with v-prefix: ' . $download_url);
                 
                 // Test again
                 $test_response = wp_remote_head($download_url, array('timeout' => 5));
                 if (is_wp_error($test_response) || wp_remote_retrieve_response_code($test_response) !== 200) {
                     // Try without 'v' prefix as last resort
                     $download_url = 'https://github.com/' . $this->github_username . '/' . $this->github_repository . '/archive/refs/tags/' . $tag_without_v . '.zip';
-                    error_log('AQM Sitemaps: Secondary fallback failed, trying without v-prefix: ' . $download_url);
+                    $this->log('Secondary fallback failed, trying without v-prefix: ' . $download_url);
                 }
             }
         } else {
-            error_log('AQM Sitemaps: Using GitHub zipball_url: ' . $download_url);
+            $this->log('Using GitHub zipball_url: ' . $download_url);
         }
         
         $update_data = array(
@@ -364,58 +375,58 @@ class GitHub_Updater {
                 return $source; // Likely not our plugin
             }
             
-            error_log('AQM Sitemaps: Detected potential plugin update during bulk update');
+            $this->log('Detected potential plugin update during bulk update');
         }
         
-        error_log('AQM Sitemaps: Fixing directory name during update');
-        error_log('AQM Sitemaps: Source directory: ' . $source);
+        $this->log('Fixing directory name during update');
+        $this->log('Source directory: ' . $source);
         
         // Get the expected plugin slug (folder name)
         $plugin_slug = dirname($this->plugin_basename);
-        error_log('AQM Sitemaps: Plugin slug: ' . $plugin_slug);
+        $this->log('Plugin slug: ' . $plugin_slug);
         
         // Check if the source directory already has the correct name
         $source_basename = basename($source);
         if ($source_basename === $plugin_slug) {
-            error_log('AQM Sitemaps: Source directory already has the correct name');
+            $this->log('Source directory already has the correct name');
             return $source;
         }
         
         // GitHub zipball typically creates a directory like 'username-repository-hash' or 'repository-tag'
         // We need to rename it to match our plugin slug
         $correct_directory = trailingslashit($remote_source) . $plugin_slug;
-        error_log('AQM Sitemaps: Target directory: ' . $correct_directory);
+        $this->log('Target directory: ' . $correct_directory);
         
         // If the target directory already exists, remove it first
         if ($wp_filesystem->exists($correct_directory)) {
-            error_log('AQM Sitemaps: Target directory exists, removing it');
+            $this->log('Target directory exists, removing it');
             $wp_filesystem->delete($correct_directory, true);
         }
         
         // Check if source directory exists
         if (!$wp_filesystem->exists($source)) {
-            error_log('AQM Sitemaps: Source directory does not exist: ' . $source);
+            $this->log('Source directory does not exist: ' . $source);
             return $source;
         }
         
         // Rename the directory
-        error_log('AQM Sitemaps: Attempting to rename ' . $source . ' to ' . $correct_directory);
+        $this->log('Attempting to rename ' . $source . ' to ' . $correct_directory);
         if ($wp_filesystem->move($source, $correct_directory)) {
-            error_log('AQM Sitemaps: Directory renamed successfully');
+            $this->log('Directory renamed successfully');
             return $correct_directory;
         } else {
-            error_log('AQM Sitemaps: Failed to rename directory');
+            $this->log('Failed to rename directory');
             
             // Log filesystem details for debugging
-            error_log('AQM Sitemaps: WP Filesystem method: ' . get_filesystem_method());
+            $this->log('WP Filesystem method: ' . get_filesystem_method());
             
             // Try to determine why the move failed
             if (!$wp_filesystem->is_writable($remote_source)) {
-                error_log('AQM Sitemaps: Remote source directory is not writable');
+                $this->log('Remote source directory is not writable');
             }
             
             if ($wp_filesystem->exists($correct_directory)) {
-                error_log('AQM Sitemaps: Target directory already exists after failed move');
+                $this->log('Target directory already exists after failed move');
             }
         }
         
@@ -486,7 +497,7 @@ class GitHub_Updater {
             $current = new stdClass();
         }
         
-        error_log('AQM Sitemaps: Forcing update check');
+        $this->log('Forcing update check');
         
         if (!isset($current->checked)) {
             $current->checked = array();
@@ -520,7 +531,7 @@ class GitHub_Updater {
      */
     public function after_update_success($response, $hook_extra, $result) {
         if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->plugin_basename) {
-            error_log('AQM Sitemaps: Update completed successfully');
+            $this->log('Update completed successfully');
             
             // Clear all update-related transients
             delete_transient($this->transient_name);
@@ -543,7 +554,7 @@ class GitHub_Updater {
             }
             $plugin_data = get_plugin_data($this->plugin_file);
             $new_version = $plugin_data['Version'];
-            error_log('AQM Sitemaps: Plugin updated to version ' . $new_version);
+            $this->log('Plugin updated to version ' . $new_version);
         }
         return $response;
     }

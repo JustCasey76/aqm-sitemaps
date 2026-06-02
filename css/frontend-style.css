@@ -1,59 +1,111 @@
-/* AQM Sitemap Enhanced Frontend Styles - v1.0.4 */
+/* AQM Sitemap Enhanced Frontend Styles - v1.0.6 - Divi Compatible */
 
-/* Base sitemap styles */
+/* Base sitemap styles - Override Divi */
 .aqm-sitemap {
-    margin: 0;
-    width: 100%;
-    box-sizing: border-box;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    clear: both !important;
 }
 
-/* Column layout */
-.sitemap-columns-container {
-    display: flex;
-    flex-wrap: wrap;
-    margin: 0 -10px;
-    width: 100%;
-    box-sizing: border-box;
+/* Column layout - Override Divi flex/grid */
+.aqm-sitemap-columns-container {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    margin: 0 -10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    clear: both !important;
 }
 
-.sitemap-column {
-    padding: 0 10px;
-    box-sizing: border-box;
+.aqm-sitemap-column {
+    padding: 0 10px !important;
+    box-sizing: border-box !important;
+    float: none !important;
+    position: relative !important;
 }
 
-.sitemap-column ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.aqm-sitemap-column ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    column-count: 1 !important;
+    -webkit-column-count: 1 !important;
+    -moz-column-count: 1 !important;
+    columns: 1 !important;
 }
 
-.sitemap-column li {
-    margin-bottom: 10px;
+.aqm-sitemap-column li {
+    list-style: none !important;
+}
+
+/* Apply margin to all list items in columns */
+.aqm-sitemap-column li {
+    margin-bottom: var(--item-margin, 10px) !important;
+}
+
+/* Apply padding and border ONLY to single column layouts */
+.aqm-sitemap.aqm-columns-1 .aqm-sitemap-column li {
+    padding-bottom: var(--item-padding, 10px) !important;
+    border-bottom: 1px solid var(--border-color, #ddd) !important;
+}
+
+.aqm-sitemap.aqm-columns-1 .aqm-sitemap-column li:last-child {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.aqm-sitemap-column li i {
+    margin-right: 5px !important;
+}
+
+/* Icon color using CSS custom property */
+.aqm-sitemap i {
+    color: var(--icon-color, currentColor) !important;
+}
+
+/* Active page link styling */
+.aqm-sitemap .aqm-active-page,
+.aqm-sitemap a.aqm-active-page,
+.aqm-sitemap span.aqm-active-page {
+    color: var(--active-color, #ff6600) !important;
+    font-weight: bold !important;
 }
 
 /* Column width settings */
-.columns-1 .sitemap-column {
-    width: 100%;
+.aqm-sitemap.aqm-columns-1 .aqm-sitemap-columns-container {
+    display: block !important;
+    margin: 0 !important;
 }
 
-.columns-2 .sitemap-column {
-    width: 50%;
+.aqm-sitemap.aqm-columns-1 .aqm-sitemap-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
-.columns-3 .sitemap-column {
-    width: 33.333%;
+.aqm-sitemap.aqm-columns-2 .aqm-sitemap-column {
+    width: 50% !important;
 }
 
-.columns-4 .sitemap-column {
-    width: 25%;
+.aqm-sitemap.aqm-columns-3 .aqm-sitemap-column {
+    width: 33.333% !important;
 }
 
-.columns-5 .sitemap-column {
-    width: 20%;
+.aqm-sitemap.aqm-columns-4 .aqm-sitemap-column {
+    width: 25% !important;
 }
 
-.columns-6 .sitemap-column {
-    width: 16.666%;
+.aqm-sitemap.aqm-columns-5 .aqm-sitemap-column {
+    width: 20% !important;
+}
+
+.aqm-sitemap.aqm-columns-6 .aqm-sitemap-column {
+    width: 16.666% !important;
 }
 
 /* Inline layout */
@@ -65,34 +117,23 @@
     content: ' | ';
 }
 
-/* Responsive adjustments */
-@media (max-width: 1200px) {
-    .columns-5 .sitemap-column,
-    .columns-6 .sitemap-column {
-        width: 25%;
-    }
-}
-
-@media (max-width: 992px) {
-    .columns-4 .sitemap-column,
-    .columns-5 .sitemap-column,
-    .columns-6 .sitemap-column {
-        width: 33.333%;
-    }
-}
-
-@media (max-width: 768px) {
-    .columns-3 .sitemap-column,
-    .columns-4 .sitemap-column,
-    .columns-5 .sitemap-column,
-    .columns-6 .sitemap-column {
-        width: 50%;
-    }
-}
-
-/* Mobile - single column */
-@media (max-width: 576px) {
-    .sitemap-column {
+/* Responsive adjustments - Mobile gets single column */
+@media screen and (max-width: 768px) {
+    .aqm-sitemap.aqm-columns-1 .aqm-sitemap-column,
+    .aqm-sitemap.aqm-columns-2 .aqm-sitemap-column,
+    .aqm-sitemap.aqm-columns-3 .aqm-sitemap-column,
+    .aqm-sitemap.aqm-columns-4 .aqm-sitemap-column,
+    .aqm-sitemap.aqm-columns-5 .aqm-sitemap-column,
+    .aqm-sitemap.aqm-columns-6 .aqm-sitemap-column {
         width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        flex-basis: 100% !important;
+        min-width: 100% !important;
+    }
+    
+    .aqm-sitemap-columns-container {
+        display: block !important;
+        flex-direction: column !important;
     }
 }
